@@ -137,6 +137,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/leads/:id/assign', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      if (!lead.anlaggning) {
+        return res.status(400).json({ message: "Lead must have a facility assigned" });
+      }
+
+      const nextSellerId = await roundRobinService.assignLeadToNextSeller(lead.anlaggning);
+      if (!nextSellerId) {
+        return res.status(400).json({ message: "No available sellers for this facility" });
+      }
+
+      const updatedLead = await storage.assignLead(req.params.id, nextSellerId);
+      res.json(updatedLead);
+    } catch (error: any) {
+      if (error.message === "Lead not found") {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      console.error("Error assigning lead via round-robin:", error);
+      res.status(500).json({ message: "Failed to assign lead" });
+    }
+  });
+
   app.patch('/api/leads/:id/assign', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -383,6 +416,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating seller pool:", error);
       res.status(500).json({ message: "Failed to update seller pool" });
+    }
+  });
+
+  app.get('/api/leads/:id/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      if (user.role !== "MANAGER" && lead.assignedToId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const auditLogs = await storage.getAuditLogs(req.params.id);
+      res.json(auditLogs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 

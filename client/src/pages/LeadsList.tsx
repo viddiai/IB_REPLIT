@@ -22,9 +22,7 @@ export default function LeadsList() {
 
   const assignLeadMutation = useMutation({
     mutationFn: async (leadId: string) => {
-      return await apiRequest(`/api/leads/${leadId}/assign`, {
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/leads/${leadId}/assign`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
@@ -130,7 +128,7 @@ export default function LeadsList() {
                 location={lead.anlaggning || ""}
                 status={lead.status}
                 createdAt={lead.createdAt.toString().split('T')[0]}
-                vehicleLink={lead.vehicleLink}
+                vehicleLink={lead.vehicleLink || undefined}
                 onViewDetails={() => {
                   toast({
                     title: "Lead detaljer",
