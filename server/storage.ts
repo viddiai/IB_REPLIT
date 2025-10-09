@@ -1,38 +1,206 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools } from "@shared/schema";
+import type {
+  User,
+  InsertUser,
+  UpsertUser,
+  Lead,
+  InsertLead,
+  LeadNote,
+  InsertLeadNote,
+  LeadTask,
+  InsertLeadTask,
+  AuditLog,
+  InsertAuditLog,
+  SellerPool,
+  InsertSellerPool,
+} from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
+  getLeads(filters?: {
+    assignedToId?: string;
+    status?: string;
+    source?: string;
+    anlaggning?: string;
+  }): Promise<Lead[]>;
+  getLeadById(id: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, data: Partial<InsertLead>): Promise<Lead | undefined>;
+  deleteLead(id: string): Promise<void>;
+  
+  getLeadNotes(leadId: string): Promise<LeadNote[]>;
+  createLeadNote(note: InsertLeadNote): Promise<LeadNote>;
+  
+  getLeadTasks(leadId: string): Promise<LeadTask[]>;
+  createLeadTask(task: InsertLeadTask): Promise<LeadTask>;
+  updateLeadTask(id: string, data: Partial<InsertLeadTask>): Promise<LeadTask | undefined>;
+  
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(leadId: string): Promise<AuditLog[]>;
+  
+  getSellerPools(anlaggning?: string): Promise<SellerPool[]>;
+  createSellerPool(pool: InsertSellerPool): Promise<SellerPool>;
+  updateSellerPool(id: string, data: Partial<InsertSellerPool>): Promise<SellerPool | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
-  }
-
+export class DbStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async getLeads(filters?: {
+    assignedToId?: string;
+    status?: string;
+    source?: string;
+    anlaggning?: string;
+  }): Promise<Lead[]> {
+    let query = db.select().from(leads).where(eq(leads.isDeleted, false));
+    
+    const conditions = [eq(leads.isDeleted, false)];
+    
+    if (filters?.assignedToId) {
+      conditions.push(eq(leads.assignedToId, filters.assignedToId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(leads.status, filters.status as any));
+    }
+    if (filters?.source) {
+      conditions.push(eq(leads.source, filters.source as any));
+    }
+    if (filters?.anlaggning) {
+      conditions.push(eq(leads.anlaggning, filters.anlaggning as any));
+    }
+    
+    return db.select().from(leads).where(and(...conditions)).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadById(id: string): Promise<Lead | undefined> {
+    const [lead] = await db
+      .select()
+      .from(leads)
+      .where(and(eq(leads.id, id), eq(leads.isDeleted, false)));
+    return lead;
+  }
+
+  async createLead(insertLead: InsertLead): Promise<Lead> {
+    const [lead] = await db.insert(leads).values(insertLead).returning();
+    return lead;
+  }
+
+  async updateLead(id: string, data: Partial<InsertLead>): Promise<Lead | undefined> {
+    const [lead] = await db
+      .update(leads)
+      .set(data)
+      .where(eq(leads.id, id))
+      .returning();
+    return lead;
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    await db
+      .update(leads)
+      .set({ isDeleted: true, deletedAt: new Date() })
+      .where(eq(leads.id, id));
+  }
+
+  async getLeadNotes(leadId: string): Promise<LeadNote[]> {
+    return db
+      .select()
+      .from(leadNotes)
+      .where(eq(leadNotes.leadId, leadId))
+      .orderBy(desc(leadNotes.createdAt));
+  }
+
+  async createLeadNote(note: InsertLeadNote): Promise<LeadNote> {
+    const [leadNote] = await db.insert(leadNotes).values(note).returning();
+    return leadNote;
+  }
+
+  async getLeadTasks(leadId: string): Promise<LeadTask[]> {
+    return db
+      .select()
+      .from(leadTasks)
+      .where(eq(leadTasks.leadId, leadId))
+      .orderBy(leadTasks.dueDate);
+  }
+
+  async createLeadTask(task: InsertLeadTask): Promise<LeadTask> {
+    const [leadTask] = await db.insert(leadTasks).values(task).returning();
+    return leadTask;
+  }
+
+  async updateLeadTask(id: string, data: Partial<InsertLeadTask>): Promise<LeadTask | undefined> {
+    const [task] = await db
+      .update(leadTasks)
+      .set(data)
+      .where(eq(leadTasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [auditLog] = await db.insert(auditLogs).values(log).returning();
+    return auditLog;
+  }
+
+  async getAuditLogs(leadId: string): Promise<AuditLog[]> {
+    return db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.leadId, leadId))
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getSellerPools(anlaggning?: string): Promise<SellerPool[]> {
+    if (anlaggning) {
+      return db
+        .select()
+        .from(sellerPools)
+        .where(eq(sellerPools.anlaggning, anlaggning as any))
+        .orderBy(sellerPools.sortOrder);
+    }
+    return db.select().from(sellerPools).orderBy(sellerPools.sortOrder);
+  }
+
+  async createSellerPool(pool: InsertSellerPool): Promise<SellerPool> {
+    const [sellerPool] = await db.insert(sellerPools).values(pool).returning();
+    return sellerPool;
+  }
+
+  async updateSellerPool(id: string, data: Partial<InsertSellerPool>): Promise<SellerPool | undefined> {
+    const [pool] = await db
+      .update(sellerPools)
+      .set(data)
+      .where(eq(sellerPools.id, id))
+      .returning();
+    return pool;
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DbStorage();
