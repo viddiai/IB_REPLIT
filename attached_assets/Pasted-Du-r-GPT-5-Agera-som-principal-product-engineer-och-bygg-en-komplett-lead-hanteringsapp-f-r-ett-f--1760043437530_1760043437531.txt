@@ -1,0 +1,120 @@
+Du är GPT-5. Agera som principal product engineer och bygg en komplett lead-hanteringsapp för ett företag som säljer fritidsfordon (husvagnar/husbilar) – körbar direkt i Replit 3.
+
+# Mål
+Skapa ett fullstack-system där intresseanmälningar som idag kommer som e-post från Bytbil.se och Blocket automatiskt läses in, normaliseras till leads, tilldelas säljare (manuellt eller round-robin per anläggning: Falkenberg, Göteborg, Trollhättan), hanteras i ett enkelt CRM-flöde med kommentarer/”nästa steg” och där manager kan omfördela. Bygg även ett dashboard med statistik (källa, antal, ledtider, konvertering/win-rate).
+
+# Krav (funktioner)
+1) Inloggning & roller (RBAC)
+   - Roller: MANAGER, SALJARE.
+   - Säljare ser bara sina leads; Manager ser allt, kan omfördela/återöppna.
+   - Enkel e-post+lösen eller OAuth (välj en – dokumentera valet). Lösen ska hashas (argon2/bcrypt).
+
+2) Leadmodell & statusflöde (svenska etiketter)
+   - Leadfält: id, källa (enum: BYTBIL, BLOCKET, MANUELL), anläggning (Falkenberg/Göteborg/Trollhättan), kontakt (namn, e-post, telefon), fordon (titel/länk/listingId), fritext, tilldelad_säljare_id, nuvarande_status (enum), timestamps.
+   - Statusar (visa svenska etiketter i UI): 
+     • NY_INTRESSEANMALAN (”Ny intresseanmälan”) 
+     • KUND_KONTAKTAD (”Kund kontaktad”)
+     • VUNNEN (”Vunnen / Affär”)
+     • FORLORAD (”Förlorad / Inte affär”)
+   - Kommentarer/anteckningar per lead.
+   - ”Nästa steg / To-do” per lead: beskrivning, förfallodatum, utförd/ej utförd.
+
+3) Ledtider & mätpunkter
+   - Spara: createdAt (ingest), assignedAt (tilldelad säljare), firstContactAt (första status→KUND_KONTAKTAD), closedAt (VUNNEN/FORLORAD).
+   - Härled metrics: 
+     • TTFCA = tid från createdAt → firstContactAt 
+     • TTA = tid från createdAt → assignedAt
+     • TTC = tid från createdAt → closedAt
+
+4) Tilldelning (assignment)
+   - Manager kan manuellt tilldela/omfördela.
+   - Automatisk round-robin per anläggning (separata köer för Falkenberg, Göteborg, Trollhättan).
+   - Konfigurerbar säljaruppsättning per anläggning (enable/disable säljare i poolen).
+   - Om anläggning saknas i e-posten: försök härleda från fordonets länk/ID; annars default-pool och flagga ”okänd anläggning”.
+
+5) E-post-ingest (Bytbil/Blocket)
+   - Implementera två vägar (välj en som standard, håll båda möjliga):
+     A) IMAP-poller (node-imap/imapflow): läs inkommande från definierade mappar/filter (från-adresser typ *@blocket.se, *@bytbil.se), markera som läst efter lyckad parsing, idempotens via message-ID checksum.
+     B) Inbound webhook (t.ex. Mailgun/SendGrid routes) som POST:ar rå-payload till /api/email/inbound.
+   - Pluggbar parser per källa (parserBytbil(), parserBlocket()) som extraherar: namn, e-post, telefon, listingId, annonslänk, anläggning (om möjligt), fritext.
+   - Lägg med robusta regex/HTML-fallbacks och tests med fixtures (exempelmails).
+
+6) UI (Next.js, svensk copy)
+   - Säljarvy: 
+     • ”Mina leads” (tabbar/facetter: Ny, Kontaktad, Vunnen, Förlorad), sök & filter (källa, datum, anläggning).
+     • Lead-kortlista + detaljsida med kontaktinfo, statusbyten, kommentarer, nästa steg (CRUD).
+   - Managervy:
+     • ”Inkommande” (icke tilldelade), mass-tilldelning, omfördela, aktivera/inaktivera säljare i round-robin per anläggning.
+   - Dashboard:
+     • KPI-brickor: antal leads (period), win-rate, snitt-TTFCA, snitt-TTC.
+     • Diagram/tabeller: leads per källa (Bytbil/Blocket), per anläggning, per status, tidsserier (dag/vecka/månad).
+     • Filter: datumintervall, anläggning, säljare, källa.
+
+7) GDPR & loggning
+   - Minimera lagring av PII (namn, telefon, e-post). Lägg till ”Radera lead” (soft delete + PII-maskning).
+   - Audit-logg för statusbyten/assigments (vem, när, från→till).
+
+# Tekniskt (stack & projektstruktur)
+- Körmiljö: Replit 3 (Nix-baserad).
+- Frontend/Server: Next.js (App Router) + TypeScript. API-routes eller separerat Fastify – välj och motivera.
+- DB: PostgreSQL via Prisma. Generera migrations och seed.
+- Jobs: BullMQ (Upstash Redis) eller node-cron för IMAP-poller (välj och motivera). Lägg ”email-ingest worker”.
+- Auth: Auth.js/NextAuth eller Clerk – välj en och implementera.
+- UI-kit: shadcn/ui + Tailwind. Ikoner: lucide-react.
+- Test: Vitest (unit) + Playwright (E2E). 
+- Observability: pino-logging.
+
+# Leverabler (måste inkluderas i svaret)
+1) Repo-träd (filstruktur) och alla filer i kodblock, med filnamn och fullständigt innehåll.
+2) `prisma/schema.prisma` med modeller: User, Session (om Auth.js), Role (enum), SellerProfile (med anläggning), Lead, LeadNote, LeadTask, Assignment, AuditLog.
+3) `db/migrations/*` auto-genereras men inkludera SQL från `prisma migrate diff` (för Replit-körning).
+4) `.env.example` med alla nödvändiga miljövariabler (DB_URL, AUTH_SECRET, IMAP_HOST/USER/PASS, INBOUND_TOKEN, REDIS_URL m.m.) + kommentarer.
+5) E-post-ingest:
+   - `workers/emailIngest.ts` (IMAP-poller eller webhook konsument).
+   - `lib/parsers/{blocket.ts, bytbil.ts}` med robust parsing + enhetstester och fixtures i `__tests__/fixtures/*`.
+   - Idempotens (hash på msg-id + body), felhantering och dead-letter-queue.
+6) Round-robin:
+   - `lib/assignment/roundRobin.ts` med per-anläggnings-pooler och enable/disable säljare.
+   - Enhetstester som täcker wrap-around och borttag av säljare.
+7) API
+   - REST eller tRPC – välj en. Exempelendpoints:
+     • `POST /api/leads` (skapa), `GET /api/leads`, `PATCH /api/leads/:id` (status, assign), `POST /api/leads/:id/notes`, `POST /api/leads/:id/tasks`.
+     • `POST /api/email/inbound` (om webhook-vägen används).
+     • `GET /api/dashboard?from=...&to=...&source=...`
+   - Inkludera Zod-validering av payloads och RBAC-guard per endpoint.
+8) UI-sidor (App Router):
+   - `/login`, `/` (översikt), `/leads`, `/leads/[id]`, `/dashboard`, `/settings/assignment`.
+   - Tillgänglighetsvänliga komponenter (Button, Card, DataTable, Badge, Dialog, Tooltip).
+9) Dashboard-logik:
+   - SQL eller Prisma-aggregationer för KPIer (win-rate, snitt-TTFCA/TTC) + tidsserie.
+   - Cacha 5–15 min per filter-kombination.
+10) Testning
+   - Vitest: parser-tests (Bytbil/Blocket), assignment-tests, RBAC-tests.
+   - Playwright: flöde ”ny lead → auto-tilldelning → säljare ändrar status → manager ser i dashboard”.
+11) Seed & demo
+   - `prisma/seed.ts` som skapar: 1 manager, 4 säljare, pools per anläggning, 30 demoleads (hälften Bytbil/Blocket) med spridda datum/statusar.
+12) Drift i Replit
+   - `replit.nix` och `Procfile`/npm-scripts: `dev`, `build`, `start`, `worker`.
+   - README med steg-för-steg: init DB, kör migrations/seed, sätt miljövariabler, starta app + worker.
+
+# Antaganden & tydlighet
+- UI-språk: svenska (alla etiketter/statusar på svenska).
+- Tidszon: Europe/Stockholm (visa datum/tider med lokala format).
+- Om okända fält i e-post: lagra i `rawPayload` JSON-kolumn för felsökning.
+- Om för lång kod: segmentera svaret per större filblock i flera meddelanden, men inkludera **alla** filer.
+
+# Kvalitetskriterier (acceptanstest)
+- Skapa lead via fixture-e-post → lead i DB med korrekt källa/anläggning.
+- Round-robin roterar korrekt per anläggning och hoppar över inaktiva säljare.
+- ”Mina leads” visar endast inloggad säljares leads.
+- Statusbyten loggas i AuditLog med användare/tidsstämpel.
+- Dashboard visar antal per källa, snitt-TTFCA/TTC och win-rate för valt intervall.
+- Alla endpoints skyddas av RBAC och validering (Zod).
+- Tests kör grönt i Replit.
+
+# Stretch (om utrymme finns)
+- Notifieringar (e-post) vid ny tilldelning.
+- Export (CSV) från dashboard.
+- Enkelt SLA-larm: markera leads med TTFCA > 24h.
+
+Bygg nu hela koden och dokumentationen enligt ovan.
