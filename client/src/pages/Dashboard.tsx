@@ -1,51 +1,69 @@
+import { useQuery } from "@tanstack/react-query";
 import KpiCard from "@/components/KpiCard";
 import LeadChart from "@/components/LeadChart";
 import SourceTable from "@/components/SourceTable";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
+
+interface DashboardStats {
+  totalLeads: number;
+  newLeads: number;
+  contacted: number;
+  won: number;
+  lost: number;
+  winRate: number;
+  avgTimeToFirstContact: number;
+  avgTimeToClose: number;
+  leadsBySource: Array<{ source: string; count: number }>;
+  leadsByAnlaggning: Array<{ anlaggning: string; count: number }>;
+}
 
 export default function Dashboard() {
-  // TODO: remove mock data
-  const mockChartData = [
-    { date: 'Dec 9', value: 0 },
-    { date: 'Dec 10', value: 1 },
-    { date: 'Dec 11', value: 2.25 },
-    { date: 'Dec 12', value: 3 },
-    { date: 'Dec 13', value: 2.15 },
-    { date: 'Dec 14', value: 1 },
-    { date: 'Dec 15', value: 2.2 },
-    { date: 'Dec 16', value: 3 },
-  ];
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
+  });
 
-  const leadSourceData = [
-    { source: 'Bytbil', count: 145 },
-    { source: 'Blocket', count: 89 },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-  const conversionData = [
-    { source: 'Portalregistrering', count: 234 },
-    { source: 'Demoförfrågan', count: 45 },
-    { source: 'Kontaktformulär', count: 78 },
-  ];
+  if (!stats) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Kunde inte hämta statistik</p>
+      </div>
+    );
+  }
 
   const kpiData = [
-    { title: "Totala leads", value: "234", subtitle: "Denna månad", trend: 12.4 },
-    { title: "Konverteringsgrad", value: "24.3%", subtitle: "Genomsnitt alla kampanjer", trend: 3.2 },
-    { title: "Genomsnittlig svarstid", value: "2.8h", subtitle: "Tid till första kontakt", trend: -15.6 },
-    { title: "Aktiva säljare", value: "8", subtitle: "Per anläggning", trend: 0 },
+    { title: "Totala leads", value: stats.totalLeads.toString(), subtitle: "Alla leads", trend: 0 },
+    { title: "Konverteringsgrad", value: `${stats.winRate.toFixed(1)}%`, subtitle: "Win rate", trend: 0 },
+    { title: "Genomsnittlig svarstid", value: `${stats.avgTimeToFirstContact.toFixed(1)}h`, subtitle: "Tid till första kontakt", trend: 0 },
+    { title: "Genomsnittlig säljtid", value: `${stats.avgTimeToClose.toFixed(1)} dagar`, subtitle: "Tid till avslut", trend: 0 },
   ];
+
+  const statusDistribution = [
+    { status: "Ny intresseanmälan", count: stats.newLeads },
+    { status: "Kund kontaktad", count: stats.contacted },
+    { status: "Vunnen", count: stats.won },
+    { status: "Förlorad", count: stats.lost },
+  ].filter(item => item.count > 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">KPI & Realtidsrapportering</p>
+          <p className="text-muted-foreground mt-1">KPI & Statistik</p>
         </div>
         <Button variant="outline" className="gap-2" data-testid="button-date-filter">
           <Calendar className="w-4 h-4" />
-          Senaste 30 dagarna
+          Alla leads
         </Button>
       </div>
 
@@ -56,35 +74,42 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <LeadChart title="Besöksengagemang" data={mockChartData} />
-        <Card className="p-6 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-32 h-32 mx-auto mb-4 rounded-full border-8 border-primary border-t-transparent animate-spin-slow flex items-center justify-center">
-              <div className="text-4xl font-bold text-foreground">2</div>
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">Aktiva användare</p>
-            <p className="text-xs text-muted-foreground mt-1">Realtid</p>
-          </div>
-        </Card>
+        <SourceTable
+          title="Lead-källor"
+          data={stats.leadsBySource}
+          columns={[
+            { key: 'source', header: 'Källa' },
+            { key: 'count', header: 'Antal' },
+          ]}
+        />
+        <SourceTable
+          title="Anläggningsfördelning"
+          data={stats.leadsByAnlaggning}
+          columns={[
+            { key: 'anlaggning', header: 'Anläggning' },
+            { key: 'count', header: 'Antal' },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SourceTable
-          title="Lead-källor"
-          data={leadSourceData}
+          title="Statusfördelning"
+          data={statusDistribution}
           columns={[
-            { key: 'source', header: 'Källa' },
+            { key: 'status', header: 'Status' },
             { key: 'count', header: 'Antal' },
           ]}
         />
-        <SourceTable
-          title="Konverteringsuppdelning"
-          data={conversionData}
-          columns={[
-            { key: 'source', header: 'Källa' },
-            { key: 'count', header: 'Antal' },
-          ]}
-        />
+        <Card className="p-6 flex flex-col justify-center">
+          <div className="text-center space-y-4">
+            <div className="text-6xl font-bold text-primary">{stats.totalLeads}</div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Totalt antal leads</p>
+              <p className="text-xs text-muted-foreground mt-1">I systemet</p>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

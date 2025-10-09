@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import LeadCard from "@/components/LeadCard";
 import FilterBar from "@/components/FilterBar";
 import StatusTabs from "@/components/StatusTabs";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
+import type { Lead } from "@shared/schema";
 
 export default function LeadsList() {
   const [activeTab, setActiveTab] = useState("all");
@@ -11,55 +13,50 @@ export default function LeadsList() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
 
-  // TODO: remove mock data
-  const mockLeads = [
-    {
-      id: "1",
-      vehicleTitle: "Adria Altea 542 DT - 2023",
-      contactName: "Erik Andersson",
-      contactEmail: "erik.andersson@example.com",
-      contactPhone: "070-123 45 67",
-      source: "BYTBIL" as const,
-      location: "Falkenberg",
-      status: "NY_INTRESSEANMALAN" as const,
-      createdAt: "2024-01-15",
-      nextStep: "Kontakta kund inom 24h",
-    },
-    {
-      id: "2",
-      vehicleTitle: "Kabe Royal 560 XL - 2022",
-      contactName: "Anna Svensson",
-      contactEmail: "anna.s@example.com",
-      source: "BLOCKET" as const,
-      location: "Göteborg",
-      status: "KUND_KONTAKTAD" as const,
-      createdAt: "2024-01-14",
-      assignedTo: "Lisa Karlsson",
-      vehicleLink: "https://example.com",
-    },
-    {
-      id: "3",
-      vehicleTitle: "Hobby Prestige 720 - 2021",
-      contactName: "Johan Berg",
-      contactPhone: "073-987 65 43",
-      source: "MANUELL" as const,
-      location: "Trollhättan",
-      status: "VUNNEN" as const,
-      createdAt: "2024-01-10",
-      assignedTo: "Per Johansson",
-    },
-    {
-      id: "4",
-      vehicleTitle: "Dethleffs Globebus T7 - 2023",
-      contactName: "Maria Nilsson",
-      contactEmail: "maria.n@example.com",
-      contactPhone: "072-456 78 90",
-      source: "BYTBIL" as const,
-      location: "Falkenberg",
-      status: "NY_INTRESSEANMALAN" as const,
-      createdAt: "2024-01-13",
-    },
-  ];
+  const { data: leads, isLoading } = useQuery<Lead[]>({
+    queryKey: ["/api/leads"],
+  });
+
+  const filteredLeads = useMemo(() => {
+    if (!leads) return [];
+
+    return leads.filter((lead) => {
+      const matchesTab = activeTab === "all" || 
+        (activeTab === "new" && lead.status === "NY_INTRESSEANMALAN") ||
+        (activeTab === "contacted" && lead.status === "KUND_KONTAKTAD") ||
+        (activeTab === "won" && lead.status === "VUNNEN") ||
+        (activeTab === "lost" && lead.status === "FORLORAD");
+
+      const matchesSearch = !search || 
+        lead.contactName?.toLowerCase().includes(search.toLowerCase()) ||
+        lead.vehicleTitle?.toLowerCase().includes(search.toLowerCase());
+
+      const matchesSource = sourceFilter === "all" || lead.source === sourceFilter;
+      const matchesLocation = locationFilter === "all" || lead.anlaggning === locationFilter;
+
+      return matchesTab && matchesSearch && matchesSource && matchesLocation;
+    });
+  }, [leads, activeTab, search, sourceFilter, locationFilter]);
+
+  const counts = useMemo(() => {
+    if (!leads) return { all: 0, new: 0, contacted: 0, won: 0, lost: 0 };
+
+    return {
+      all: leads.length,
+      new: leads.filter(l => l.status === "NY_INTRESSEANMALAN").length,
+      contacted: leads.filter(l => l.status === "KUND_KONTAKTAD").length,
+      won: leads.filter(l => l.status === "VUNNEN").length,
+      lost: leads.filter(l => l.status === "FORLORAD").length,
+    };
+  }, [leads]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -77,13 +74,7 @@ export default function LeadsList() {
       <StatusTabs
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        counts={{
-          all: 234,
-          new: 12,
-          contacted: 89,
-          won: 103,
-          lost: 30,
-        }}
+        counts={counts}
       />
 
       <FilterBar
@@ -96,14 +87,31 @@ export default function LeadsList() {
       />
 
       <div className="space-y-4">
-        {mockLeads.map((lead) => (
-          <LeadCard
-            key={lead.id}
-            {...lead}
-            onViewDetails={() => console.log("View details:", lead.id)}
-            onAssign={() => console.log("Assign lead:", lead.id)}
-          />
-        ))}
+        {filteredLeads.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Inga leads hittades</p>
+          </div>
+        ) : (
+          filteredLeads.map((lead) => {
+            return (
+              <LeadCard
+                key={lead.id}
+                id={lead.id}
+                vehicleTitle={lead.vehicleTitle}
+                contactName={lead.contactName}
+                contactEmail={lead.contactEmail || ""}
+                contactPhone={lead.contactPhone || ""}
+                source={lead.source}
+                location={lead.anlaggning || ""}
+                status={lead.status}
+                createdAt={lead.createdAt.toString().split('T')[0]}
+                vehicleLink={lead.vehicleLink}
+                onViewDetails={() => console.log("View details:", lead.id)}
+                onAssign={() => console.log("Assign lead:", lead.id)}
+              />
+            );
+          })
+        )}
       </div>
     </div>
   );
