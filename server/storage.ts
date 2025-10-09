@@ -28,9 +28,12 @@ export interface IStorage {
     source?: string;
     anlaggning?: string;
   }): Promise<Lead[]>;
+  getLead(id: string): Promise<Lead | undefined>;
   getLeadById(id: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, data: Partial<InsertLead>): Promise<Lead | undefined>;
+  updateLeadStatus(id: string, status: string, userId: string): Promise<Lead>;
+  assignLead(id: string, assignedToId: string): Promise<Lead>;
   deleteLead(id: string): Promise<void>;
   
   getLeadNotes(leadId: string): Promise<LeadNote[]>;
@@ -39,6 +42,7 @@ export interface IStorage {
   getLeadTasks(leadId: string): Promise<LeadTask[]>;
   createLeadTask(task: InsertLeadTask): Promise<LeadTask>;
   updateLeadTask(id: string, data: Partial<InsertLeadTask>): Promise<LeadTask | undefined>;
+  completeLeadTask(id: string): Promise<LeadTask>;
   
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogs(leadId: string): Promise<AuditLog[]>;
@@ -100,6 +104,10 @@ export class DbStorage implements IStorage {
     return db.select().from(leads).where(and(...conditions)).orderBy(desc(leads.createdAt));
   }
 
+  async getLead(id: string): Promise<Lead | undefined> {
+    return this.getLeadById(id);
+  }
+
   async getLeadById(id: string): Promise<Lead | undefined> {
     const [lead] = await db
       .select()
@@ -119,6 +127,56 @@ export class DbStorage implements IStorage {
       .set(data)
       .where(eq(leads.id, id))
       .returning();
+    return lead;
+  }
+
+  async updateLeadStatus(id: string, status: string, userId: string): Promise<Lead> {
+    const lead = await this.getLead(id);
+    if (!lead) {
+      throw new Error("Lead not found");
+    }
+
+    const updateData: Partial<InsertLead> = { status: status as any };
+    
+    if (status === "KUND_KONTAKTAD" && !lead.firstContactAt) {
+      updateData.firstContactAt = new Date();
+    }
+    
+    if (status === "VUNNEN" || status === "FORLORAD") {
+      updateData.closedAt = new Date();
+    }
+
+    const [updatedLead] = await db
+      .update(leads)
+      .set(updateData)
+      .where(eq(leads.id, id))
+      .returning();
+
+    await this.createAuditLog({
+      leadId: id,
+      userId,
+      action: "STATUS_CHANGE",
+      fromValue: lead.status,
+      toValue: status,
+    });
+
+    return updatedLead;
+  }
+
+  async assignLead(id: string, assignedToId: string): Promise<Lead> {
+    const [lead] = await db
+      .update(leads)
+      .set({ 
+        assignedToId, 
+        assignedAt: new Date() 
+      })
+      .where(eq(leads.id, id))
+      .returning();
+
+    if (!lead) {
+      throw new Error("Lead not found");
+    }
+
     return lead;
   }
 
@@ -159,6 +217,18 @@ export class DbStorage implements IStorage {
     const [task] = await db
       .update(leadTasks)
       .set(data)
+      .where(eq(leadTasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async completeLeadTask(id: string): Promise<LeadTask> {
+    const [task] = await db
+      .update(leadTasks)
+      .set({ 
+        isCompleted: true, 
+        completedAt: new Date() 
+      })
       .where(eq(leadTasks.id, id))
       .returning();
     return task;

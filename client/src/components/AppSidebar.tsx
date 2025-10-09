@@ -1,4 +1,7 @@
-import { Home, LayoutDashboard, ListFilter, Settings, Car } from "lucide-react";
+import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -36,6 +39,31 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
+  const { user } = useAuth();
+
+  const getUserInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.firstName) {
+      return user.firstName.substring(0, 2).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+    return "U";
+  };
+
+  const getUserDisplayName = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    if (user?.firstName) {
+      return user.firstName;
+    }
+    return user?.email || "Användare";
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -68,11 +96,29 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
-        <div className="text-xs text-muted-foreground">
-          <p className="font-medium">Säljare</p>
-          <p>Lisa Karlsson</p>
+      <SidebarFooter className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user?.profileImageUrl || undefined} />
+            <AvatarFallback className="text-xs">{getUserInitials()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium truncate">{getUserDisplayName()}</p>
+            <p className="text-xs text-muted-foreground">{user?.role || "SÄLJARE"}</p>
+          </div>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full" 
+          asChild
+          data-testid="button-logout"
+        >
+          <a href="/api/logout">
+            <LogOut className="h-4 w-4" />
+            Logga ut
+          </a>
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );
