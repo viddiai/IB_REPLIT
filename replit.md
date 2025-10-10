@@ -157,6 +157,13 @@ Users & Seller Pools:
 - GET `/api/seller-pools` - Get seller pool configuration (manager-only)
 - PATCH `/api/seller-pools/:id` - Update seller pool entry (activate/deactivate)
 
+Dashboard & Analytics:
+- GET `/api/dashboard/stats` - Get dashboard KPI statistics with optional filtering
+  - Query params: `sellerId` (manager-only), `anlaggning`, `dateFrom`, `dateTo`
+  - For sellers: automatically filtered to their assigned leads
+  - For managers: optionally filter by seller, facility, or date range
+  - Returns: totalLeads, newLeads, contacted, won, lost, winRate, avgTimeToFirstContact, avgTimeToClose, leadsBySource, leadsByAnlaggning
+
 ### Authentication and Authorization
 
 **OAuth Flow:**
