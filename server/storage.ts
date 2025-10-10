@@ -54,7 +54,12 @@ export interface IStorage {
   createSellerPool(pool: InsertSellerPool): Promise<SellerPool>;
   updateSellerPool(id: string, data: Partial<InsertSellerPool>): Promise<SellerPool | undefined>;
   
-  getDashboardStats(userId?: string): Promise<{
+  getDashboardStats(filters?: {
+    userId?: string;
+    anlaggning?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }): Promise<{
     totalLeads: number;
     newLeads: number;
     contacted: number;
@@ -308,9 +313,32 @@ export class DbStorage implements IStorage {
     return pool;
   }
 
-  async getDashboardStats(userId?: string) {
-    const filters = userId ? { assignedToId: userId } : {};
-    const allLeads = await this.getLeads(filters);
+  async getDashboardStats(filters?: {
+    userId?: string;
+    anlaggning?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }) {
+    const leadFilters: any = {};
+    
+    if (filters?.userId) {
+      leadFilters.assignedToId = filters.userId;
+    }
+    
+    if (filters?.anlaggning) {
+      leadFilters.anlaggning = filters.anlaggning;
+    }
+    
+    let allLeads = await this.getLeads(leadFilters);
+    
+    // Apply date filtering if provided
+    if (filters?.dateFrom) {
+      allLeads = allLeads.filter(lead => lead.createdAt >= filters.dateFrom!);
+    }
+    
+    if (filters?.dateTo) {
+      allLeads = allLeads.filter(lead => lead.createdAt <= filters.dateTo!);
+    }
 
     const totalLeads = allLeads.length;
     const newLeads = allLeads.filter(l => l.status === "NY_INTRESSEANMALAN").length;

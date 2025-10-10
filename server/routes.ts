@@ -520,9 +520,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const stats = await storage.getDashboardStats(
-        user.role === "MANAGER" ? undefined : userId
-      );
+      const filters: any = {};
+      
+      // If seller, always filter by their userId
+      if (user.role !== "MANAGER") {
+        filters.userId = userId;
+      } else {
+        // For managers, allow filtering by sellerId from query params (skip if "all")
+        if (req.query.sellerId && req.query.sellerId !== 'all') {
+          filters.userId = req.query.sellerId as string;
+        }
+      }
+      
+      // Apply anlaggning filter if provided (skip if "all")
+      if (req.query.anlaggning && req.query.anlaggning !== 'all') {
+        filters.anlaggning = req.query.anlaggning as string;
+      }
+      
+      // Apply date range filters if provided
+      if (req.query.dateFrom) {
+        filters.dateFrom = new Date(req.query.dateFrom as string);
+      }
+      
+      if (req.query.dateTo) {
+        filters.dateTo = new Date(req.query.dateTo as string);
+      }
+
+      const stats = await storage.getDashboardStats(filters);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);

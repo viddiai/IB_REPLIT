@@ -30,8 +30,25 @@ export default function Dashboard() {
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
-    // Note: Backend does not yet support filtering. Filter parameters are kept for future implementation.
+    queryKey: ["/api/dashboard/stats", { 
+      sellerId: sellerFilter || undefined, 
+      anlaggning: anlaggningFilter || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined
+    }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (sellerFilter && sellerFilter !== 'all') params.append('sellerId', sellerFilter);
+      if (anlaggningFilter && anlaggningFilter !== 'all') params.append('anlaggning', anlaggningFilter);
+      if (dateFrom) params.append('dateFrom', dateFrom);
+      if (dateTo) params.append('dateTo', dateTo);
+      
+      const response = await fetch(`/api/dashboard/stats?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard stats');
+      }
+      return response.json();
+    }
   });
 
   const { data: users = [] } = useQuery<any[]>({
@@ -88,12 +105,7 @@ export default function Dashboard() {
 
       {showFilters && (
         <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Filtrera statistik</h3>
-            <p className="text-sm text-yellow-600 dark:text-yellow-400">
-              Filtrering implementeras i nästa version
-            </p>
-          </div>
+          <h3 className="text-lg font-semibold mb-4">Filtrera statistik</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="seller-filter">Säljare</Label>
