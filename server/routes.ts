@@ -43,6 +43,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/users/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const targetUserId = req.params.id;
+
+      if (userId !== targetUserId) {
+        return res.status(403).json({ message: "You can only update your own profile" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const updateSchema = z.object({
+        role: z.enum(["MANAGER", "SALJARE"]).optional(),
+        anlaggning: z.enum(["Falkenberg", "Göteborg", "Trollhättan"]).optional().nullable(),
+      });
+
+      const validatedData = updateSchema.parse(req.body);
+      const updatedUser = await storage.updateUser(userId, validatedData);
+
+      res.json(updatedUser);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
   app.get('/api/leads', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
