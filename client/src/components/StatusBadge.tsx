@@ -35,7 +35,7 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <Badge 
       variant="outline" 
-      className={`${config.className} border-0`}
+      className={`${config.className} border-0 text-base px-3 py-1`}
       data-testid={`status-badge-${status.toLowerCase()}`}
     >
       {config.label}

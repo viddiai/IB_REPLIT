@@ -51,6 +51,9 @@ export default function LeadCard({
   return (
     <Card className="p-6 hover-elevate" data-testid={`lead-card-${id}`}>
       <div className="space-y-4">
+        <div className="flex items-center justify-start gap-2 mb-2">
+          <StatusBadge status={status} />
+        </div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-foreground truncate" data-testid={`lead-title-${id}`}>
@@ -60,7 +63,6 @@ export default function LeadCard({
               {contactName}
             </p>
           </div>
-          <StatusBadge status={status} />
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">

@@ -25,7 +25,7 @@ export default function Landing() {
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <div className="space-y-4">
               <h1 className="text-5xl font-bold tracking-tight">
-                Lead Management för Husvagnshandlare
+                Uppföljning av intresseanmälningar
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 Automatiserad leadhantering från Bytbil och Blocket med intelligent fördelning och komplett CRM-workflow
@@ -38,7 +38,7 @@ export default function Landing() {
                 asChild
                 data-testid="button-get-started"
               >
-                <a href="/api/login">Kom igång</a>
+                <a href="/register">Kom igång</a>
               </Button>
             </div>
 

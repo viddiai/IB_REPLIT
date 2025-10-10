@@ -102,7 +102,11 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="role">Roll</Label>
-            <Select value={role} onValueChange={(val) => setRole(val as "MANAGER" | "SALJARE")}>
+            <Select 
+              value={role} 
+              onValueChange={(val) => setRole(val as "MANAGER" | "SALJARE")}
+              disabled={user.role !== "MANAGER"}
+            >
               <SelectTrigger id="role" data-testid="select-role">
                 <SelectValue placeholder="Välj roll" />
               </SelectTrigger>
@@ -111,9 +115,15 @@ export default function Settings() {
                 <SelectItem value="MANAGER">Manager</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Managers kan se alla leads och hantera säljarpoolen
-            </p>
+            {user.role === "MANAGER" ? (
+              <p className="text-xs text-muted-foreground">
+                Managers kan se alla leads och hantera säljarpoolen
+              </p>
+            ) : (
+              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                Endast managers kan ändra roller. Kontakta en manager för att ändra din roll.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

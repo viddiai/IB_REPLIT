@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import Register from "@/pages/Register";
 import Overview from "@/pages/Overview";
 import Dashboard from "@/pages/Dashboard";
 import LeadsList from "@/pages/LeadsList";
@@ -23,6 +24,7 @@ function AuthenticatedRouter() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/register" component={Register} />
         <Route component={Landing} />
       </Switch>
     );
@@ -45,6 +47,7 @@ function AuthenticatedRouter() {
           <main className="flex-1 overflow-auto">
             <Switch>
               <Route path="/" component={Overview} />
+              <Route path="/register" component={Register} />
               <Route path="/dashboard" component={Dashboard} />
               <Route path="/leads" component={LeadsList} />
               <Route path="/leads/:id" component={LeadDetail} />

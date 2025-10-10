@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, TrendingUp, Users, Clock } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Overview() {
   return (
@@ -55,22 +56,22 @@ export default function Overview() {
         <h2 className="text-xl font-semibold text-foreground mb-4">Snabbåtkomst</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Button variant="outline" className="justify-between h-auto py-4" asChild>
-            <a href="/leads">
+            <Link href="/leads">
               <div className="text-left">
                 <p className="font-medium">Mina Leads</p>
                 <p className="text-sm text-muted-foreground">Se alla tilldelade leads</p>
               </div>
               <ArrowRight className="w-5 h-5" />
-            </a>
+            </Link>
           </Button>
           <Button variant="outline" className="justify-between h-auto py-4" asChild>
-            <a href="/dashboard">
+            <Link href="/dashboard">
               <div className="text-left">
                 <p className="font-medium">Dashboard</p>
                 <p className="text-sm text-muted-foreground">KPI och statistik</p>
               </div>
               <ArrowRight className="w-5 h-5" />
-            </a>
+            </Link>
           </Button>
         </div>
       </Card>

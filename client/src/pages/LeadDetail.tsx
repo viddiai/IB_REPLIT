@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { Lead, LeadNote, LeadTask, AuditLog, User } from "@shared/schema";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,7 @@ export default function LeadDetail() {
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [newStatus, setNewStatus] = useState("");
 
   const { data: lead, isLoading: leadLoading } = useQuery<Lead>({
     queryKey: [`/api/leads/${id}`],
@@ -49,6 +51,28 @@ export default function LeadDetail() {
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     enabled: currentUser?.role === "MANAGER",
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return await apiRequest("PATCH", `/api/leads/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}/activity`] });
+      toast({
+        title: "Status uppdaterad",
+        description: "Leadens status har ändrats",
+      });
+      setNewStatus("");
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte uppdatera status",
+        variant: "destructive",
+      });
+    },
   });
 
   const reassignLeadMutation = useMutation({
@@ -202,6 +226,42 @@ export default function LeadDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
+              <p className="text-sm font-medium text-muted-foreground">Status</p>
+              <div className="mt-2">
+                <StatusBadge status={lead.status as any} />
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                  <SelectTrigger className="flex-1" data-testid="select-status">
+                    <SelectValue placeholder="Ändra status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NY_INTRESSEANMALAN">Ny intresseanmälan</SelectItem>
+                    <SelectItem value="KUND_KONTAKTAD">Kund kontaktad</SelectItem>
+                    <SelectItem value="VUNNEN">Vunnen / Affär</SelectItem>
+                    <SelectItem value="FORLORAD">Förlorad / Inte affär</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => {
+                    if (newStatus && newStatus !== lead.status) {
+                      updateStatusMutation.mutate(newStatus);
+                    }
+                  }}
+                  disabled={!newStatus || newStatus === lead.status || updateStatusMutation.isPending}
+                  size="sm"
+                  data-testid="button-update-status"
+                >
+                  {updateStatusMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Uppdatera"
+                  )}
+                </Button>
+              </div>
+            </div>
+            <Separator />
+            <div>
               <p className="text-sm font-medium text-muted-foreground">Namn</p>
               <p className="text-base" data-testid="text-contact-name">{lead.contactName}</p>
             </div>
@@ -268,13 +328,13 @@ export default function LeadDetail() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCog className="w-5 h-5" />
-              Tilldela om lead
+              Tilldela om lead (endast Manager)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Välj en säljare att tilldela denna lead till
+                Endast managers kan tilldela eller omtilldela leads till säljare
               </p>
               <div className="flex gap-2">
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
