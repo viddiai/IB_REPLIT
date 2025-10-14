@@ -17,7 +17,7 @@ export default function Landing() {
             asChild 
             data-testid="button-login"
           >
-            <a href="/api/login">Logga in</a>
+            <a href="/login">Logga in</a>
           </Button>
         </header>
 

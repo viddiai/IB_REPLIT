@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Overview from "@/pages/Overview";
 import Dashboard from "@/pages/Dashboard";
@@ -24,6 +25,7 @@ function AuthenticatedRouter() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
         <Route component={Landing} />
       </Switch>
