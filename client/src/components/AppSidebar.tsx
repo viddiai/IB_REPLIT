@@ -50,7 +50,7 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const visibleMenuItems = menuItems.filter((item) => 
     item.roles.includes(user?.role || "SALJARE")
@@ -120,13 +120,11 @@ export function AppSidebar() {
           variant="outline" 
           size="sm" 
           className="w-full" 
-          asChild
+          onClick={logout}
           data-testid="button-logout"
         >
-          <a href="/api/logout">
-            <LogOut className="h-4 w-4" />
-            Logga ut
-          </a>
+          <LogOut className="h-4 w-4" />
+          Logga ut
         </Button>
       </SidebarFooter>
     </Sidebar>
