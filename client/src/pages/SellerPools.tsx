@@ -116,15 +116,21 @@ export default function SellerPools() {
                           <p className="text-xs text-muted-foreground" data-testid={`text-seller-email-${pool.id}`}>
                             {resource?.email || "Ingen e-post"}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs" data-testid={`badge-role-${pool.id}`}>
-                              {resource?.role === "MANAGER" ? "Manager" : "Säljare"}
-                            </Badge>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {resource?.role === "MANAGER" ? (
+                              <Badge variant="default" className="text-xs bg-primary" data-testid={`badge-role-${pool.id}`}>
+                                Manager
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs" data-testid={`badge-role-${pool.id}`}>
+                                Säljare
+                              </Badge>
+                            )}
                             <Badge variant="outline" className="text-xs" data-testid={`badge-sort-order-${pool.id}`}>
                               #{pool.sortOrder}
                             </Badge>
                             {pool.isEnabled ? (
-                              <Badge variant="default" className="text-xs" data-testid={`badge-enabled-${pool.id}`}>
+                              <Badge variant="default" className="text-xs bg-green-600" data-testid={`badge-enabled-${pool.id}`}>
                                 Aktiv
                               </Badge>
                             ) : (
