@@ -48,7 +48,7 @@ export default function FilterBar({
           <SelectItem value="all">Alla källor</SelectItem>
           <SelectItem value="BYTBIL">Bytbil</SelectItem>
           <SelectItem value="BLOCKET">Blocket</SelectItem>
-          <SelectItem value="MANUELL">Hemsidan</SelectItem>
+          <SelectItem value="HEMSIDA">Hemsidan</SelectItem>
         </SelectContent>
       </Select>
 

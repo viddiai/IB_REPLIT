@@ -116,7 +116,7 @@ Core tables:
 
 Enums:
 - `role`: MANAGER, SALJARE
-- `source`: BYTBIL, BLOCKET, MANUELL
+- `source`: BYTBIL, BLOCKET, HEMSIDA
 - `status`: NY_INTRESSEANMALAN, KUND_KONTAKTAD, VUNNEN, FORLORAD
 - `anlaggning`: Falkenberg, Göteborg, Trollhättan
 

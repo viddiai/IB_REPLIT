@@ -113,7 +113,7 @@ async function seed() {
       closedAt: new Date(),
     },
     {
-      source: "MANUELL" as const,
+      source: "HEMSIDA" as const,
       anlaggning: "Trollhättan" as const,
       contactName: "Gustav Holm",
       contactEmail: "gustav.holm@example.com",

@@ -9,7 +9,7 @@ interface LeadCardProps {
   contactName: string;
   contactEmail?: string;
   contactPhone?: string;
-  source: "BYTBIL" | "BLOCKET" | "MANUELL";
+  source: "BYTBIL" | "BLOCKET" | "HEMSIDA";
   location: string;
   status: LeadStatus;
   createdAt: string;
