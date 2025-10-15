@@ -2,11 +2,17 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, sanitizeUser } from "./localAuth";
-import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, changePasswordSchema } from "@shared/schema";
+import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "@shared/schema";
 import { z } from "zod";
 import { roundRobinService } from "./roundRobin";
 import { hashPassword, verifyPassword } from "./auth";
 import passport from "passport";
+import crypto from "crypto";
+
+// Helper function to generate a secure random token
+function generateResetToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -81,6 +87,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ message: "Utloggning lyckades" });
       });
     });
+  });
+
+  // Forgot password endpoint
+  app.post('/api/forgot-password', async (req, res) => {
+    try {
+      const validatedData = forgotPasswordSchema.parse(req.body);
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(validatedData.email);
+      
+      // Don't reveal if email exists or not for security reasons
+      if (!user) {
+        return res.json({ message: "Om e-postadressen finns i systemet har ett återställningsmail skickats" });
+      }
+
+      // Generate reset token
+      const resetToken = generateResetToken();
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+
+      // Save token to database
+      await storage.createPasswordResetToken(user.id, resetToken, expiresAt);
+
+      // In development, log the reset link to console
+      // In production, this would send an email
+      const resetUrl = `${process.env.REPL_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
+      console.log('Password reset link:', resetUrl);
+      
+      // TODO: Send email with reset link
+      // For now, we'll just return success
+      
+      res.json({ message: "Om e-postadressen finns i systemet har ett återställningsmail skickats" });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valideringsfel", errors: error.errors });
+      }
+      console.error("Error during forgot password:", error);
+      res.status(500).json({ message: "Ett fel uppstod" });
+    }
+  });
+
+  // Reset password endpoint
+  app.post('/api/reset-password', async (req, res) => {
+    try {
+      const validatedData = resetPasswordSchema.parse(req.body);
+      
+      // Find reset token
+      const resetToken = await storage.getPasswordResetToken(validatedData.token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ message: "Ogiltig eller utgången återställningslänk" });
+      }
+
+      // Check if token is expired
+      if (resetToken.expiresAt < new Date()) {
+        return res.status(400).json({ message: "Återställningslänken har utgått" });
+      }
+
+      // Check if token has already been used
+      if (resetToken.usedAt) {
+        return res.status(400).json({ message: "Återställningslänken har redan använts" });
+      }
+
+      // Hash new password
+      const passwordHash = await hashPassword(validatedData.newPassword);
+
+      // Update user password
+      await storage.updateUser(resetToken.userId, { passwordHash });
+
+      // Mark token as used
+      await storage.markPasswordResetTokenAsUsed(validatedData.token);
+
+      // Clean up expired tokens
+      await storage.deleteExpiredPasswordResetTokens();
+
+      res.json({ message: "Lösenordet har återställts" });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valideringsfel", errors: error.errors });
+      }
+      console.error("Error during password reset:", error);
+      res.status(500).json({ message: "Ett fel uppstod" });
+    }
   });
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
