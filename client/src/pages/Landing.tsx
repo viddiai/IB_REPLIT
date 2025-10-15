@@ -32,16 +32,6 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="flex justify-center gap-4">
-              <Button 
-                size="lg" 
-                asChild
-                data-testid="button-get-started"
-              >
-                <a href="/register">Kom igång</a>
-              </Button>
-            </div>
-
             <div className="grid md:grid-cols-2 gap-6 mt-16">
               <Card className="text-left">
                 <CardHeader>
