@@ -7,7 +7,7 @@ export async function sendPasswordResetEmail(to: string, resetToken: string) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Leadhantering <onboarding@resend.dev>',
+      from: 'Leadhantering <noreply@intressefritidscenter.se>',
       to: [to],
       subject: 'Återställ ditt lösenord',
       html: `
