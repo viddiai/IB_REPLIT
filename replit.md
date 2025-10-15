@@ -95,6 +95,15 @@ Preferred communication style: Simple, everyday language.
    - Audit logging for all status changes and reassignments
    - Notes and tasks as sub-entities linked to leads
 
+4. **Password Reset Service:**
+   - Secure token generation using crypto.randomBytes (32 bytes hex)
+   - Tokens expire after 1 hour
+   - One-time use enforcement via usedAt timestamp
+   - Token validation checks expiry and previous use
+   - Automatic cleanup of expired tokens
+   - In development: reset links logged to console
+   - In production: email delivery can be configured via SMTP
+
 ### Data Storage Solutions
 
 **Database:**
@@ -112,6 +121,7 @@ Core tables:
 - `lead_tasks`: To-do items with descriptions, due dates, completion status
 - `audit_logs`: Change history for leads (status changes, assignments)
 - `seller_pools`: Configuration for round-robin (userId, facility, isEnabled, sortOrder)
+- `password_reset_tokens`: Secure password reset tokens with expiry and one-time use tracking
 - `sessions`: Express session storage for Replit Auth
 
 Enums:
@@ -131,6 +141,8 @@ Enums:
 Authentication:
 - GET `/api/auth/user` - Get current authenticated user
 - POST `/api/auth/logout` - Logout current user
+- POST `/api/forgot-password` - Request password reset (sends reset link to email)
+- POST `/api/reset-password` - Reset password with token
 
 Leads:
 - GET `/api/leads` - List all leads (role-based filtering)
