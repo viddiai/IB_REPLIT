@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { createImapWorkers } from "./imapWorker";
 
 const app = express();
 app.use(express.json());
@@ -67,5 +68,13 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    const imapWorkers = createImapWorkers();
+    if (imapWorkers.length > 0) {
+      log(`Starting ${imapWorkers.length} IMAP worker(s)`);
+      imapWorkers.forEach(worker => worker.start());
+    } else {
+      log("No IMAP workers configured");
+    }
   });
 })();

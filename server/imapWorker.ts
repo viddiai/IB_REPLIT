@@ -3,36 +3,59 @@ import { EmailParser } from "./emailParsers";
 import { roundRobinService } from "./roundRobin";
 import { storage } from "./storage";
 
+export interface ImapConfig {
+  name: string;
+  anlaggning: "Falkenberg" | "Göteborg" | "Trollhättan";
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+}
+
 export class ImapWorker {
   private client: ImapFlow | null = null;
   private isRunning: boolean = false;
   private processedMessageIds: Set<string> = new Set();
+  private config: ImapConfig;
+
+  constructor(config: ImapConfig) {
+    this.config = config;
+  }
 
   async connect() {
-    if (!process.env.IMAP_HOST || !process.env.IMAP_USER || !process.env.IMAP_PASSWORD) {
-      console.log("IMAP credentials not configured, skipping email polling");
+    if (!this.config.host || !this.config.user || !this.config.password) {
+      console.log(`[${this.config.name}] IMAP credentials not configured, skipping email polling`);
       return false;
     }
 
-    this.client = new ImapFlow({
-      host: process.env.IMAP_HOST,
-      port: parseInt(process.env.IMAP_PORT || "993"),
-      secure: true,
-      auth: {
-        user: process.env.IMAP_USER,
-        pass: process.env.IMAP_PASSWORD,
-      },
-      logger: false,
-    });
+    try {
+      this.client = new ImapFlow({
+        host: this.config.host,
+        port: this.config.port,
+        secure: true,
+        auth: {
+          user: this.config.user,
+          pass: this.config.password,
+        },
+        logger: false,
+      });
 
-    await this.client.connect();
-    console.log("Connected to IMAP server");
-    return true;
+      await this.client.connect();
+      console.log(`[${this.config.name}] Connected to IMAP server`);
+      return true;
+    } catch (error) {
+      console.error(`[${this.config.name}] Failed to connect to IMAP server:`, error);
+      return false;
+    }
   }
 
   async disconnect() {
     if (this.client) {
-      await this.client.logout();
+      try {
+        await this.client.logout();
+      } catch (error) {
+        console.error(`[${this.config.name}] Error during disconnect:`, error);
+      }
       this.client = null;
     }
   }
@@ -53,7 +76,7 @@ export class ImapWorker {
       });
 
       for await (const message of messages) {
-        const messageId = message.envelope.messageId || message.uid.toString();
+        const messageId = message.envelope?.messageId || message.uid.toString();
 
         if (this.processedMessageIds.has(messageId)) {
           continue;
@@ -65,7 +88,7 @@ export class ImapWorker {
           
           await this.client.messageFlagsAdd({ uid: message.uid }, ["\\Seen"]);
         } catch (error) {
-          console.error(`Error processing message ${messageId}:`, error);
+          console.error(`[${this.config.name}] Error processing message ${messageId}:`, error);
         }
       }
     } finally {
@@ -92,7 +115,7 @@ export class ImapWorker {
     const parsed = EmailParser.parseEmail(htmlContent, subject, from);
 
     if (!parsed) {
-      console.log(`Could not parse email from ${from} with subject: ${subject}`);
+      console.log(`[${this.config.name}] Could not parse email from ${from} with subject: ${subject}`);
       return;
     }
 
@@ -103,24 +126,28 @@ export class ImapWorker {
       : null;
 
     if (existingLead && existingLead.length > 0) {
-      console.log(`Lead already exists for listing ${parsed.listingId}, skipping`);
+      console.log(`[${this.config.name}] Lead already exists for listing ${parsed.listingId}, skipping`);
       return;
     }
 
     const leadData = EmailParser.toInsertLead(parsed, source);
+    
+    if (!leadData.anlaggning) {
+      leadData.anlaggning = this.config.anlaggning;
+    }
 
     if (leadData.anlaggning) {
       const lead = await roundRobinService.createLeadWithAssignment(leadData);
-      console.log(`Created and assigned lead ${lead.id} to ${lead.assignedToId}`);
+      console.log(`[${this.config.name}] Created and assigned lead ${lead.id} to ${lead.assignedToId} for ${leadData.anlaggning}`);
     } else {
       const lead = await storage.createLead(leadData);
-      console.log(`Created unassigned lead ${lead.id} (no anläggning detected)`);
+      console.log(`[${this.config.name}] Created unassigned lead ${lead.id}`);
     }
   }
 
   async start() {
     if (this.isRunning) {
-      console.log("IMAP worker already running");
+      console.log(`[${this.config.name}] IMAP worker already running`);
       return;
     }
 
@@ -130,6 +157,7 @@ export class ImapWorker {
     }
 
     this.isRunning = true;
+    console.log(`[${this.config.name}] Starting email polling (60s interval)`);
 
     const poll = async () => {
       if (!this.isRunning) return;
@@ -137,12 +165,12 @@ export class ImapWorker {
       try {
         await this.processInbox();
       } catch (error) {
-        console.error("Error polling IMAP:", error);
+        console.error(`[${this.config.name}] Error polling IMAP:`, error);
         try {
           await this.disconnect();
           await this.connect();
         } catch (reconnectError) {
-          console.error("Error reconnecting to IMAP:", reconnectError);
+          console.error(`[${this.config.name}] Error reconnecting to IMAP:`, reconnectError);
         }
       }
 
@@ -155,9 +183,56 @@ export class ImapWorker {
   }
 
   async stop() {
+    console.log(`[${this.config.name}] Stopping IMAP worker`);
     this.isRunning = false;
     await this.disconnect();
   }
 }
 
-export const imapWorker = new ImapWorker();
+export function createImapWorkers(): ImapWorker[] {
+  const workers: ImapWorker[] = [];
+  
+  const host = process.env.IMAP_HOST;
+  
+  if (!host) {
+    console.log("IMAP_HOST not configured, skipping email polling");
+    return workers;
+  }
+
+  const configs: ImapConfig[] = [
+    {
+      name: "Trollhättan",
+      anlaggning: "Trollhättan",
+      host,
+      port: 993,
+      user: process.env.IMAP_TROLLHATTAN_USER || "",
+      password: process.env.IMAP_TROLLHATTAN_PASSWORD || "",
+    },
+    {
+      name: "Göteborg",
+      anlaggning: "Göteborg",
+      host,
+      port: 993,
+      user: process.env.IMAP_GOTEBORG_USER || "",
+      password: process.env.IMAP_GOTEBORG_PASSWORD || "",
+    },
+    {
+      name: "Falkenberg",
+      anlaggning: "Falkenberg",
+      host,
+      port: 993,
+      user: process.env.IMAP_FALKENBERG_USER || "",
+      password: process.env.IMAP_FALKENBERG_PASSWORD || "",
+    },
+  ];
+
+  for (const config of configs) {
+    if (config.user && config.password) {
+      workers.push(new ImapWorker(config));
+    } else {
+      console.log(`[${config.name}] Missing credentials, skipping`);
+    }
+  }
+
+  return workers;
+}
