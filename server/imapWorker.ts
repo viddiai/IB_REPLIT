@@ -53,12 +53,10 @@ export class ImapWorker {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[${this.config.name}] ❌ Failed to connect to IMAP server: ${errorMessage}`);
-      if (this.client) {
-        try {
-          await this.client.logout();
-        } catch {}
-        this.client = null;
-      }
+      
+      // Just null out the client without attempting any cleanup
+      // This prevents crashes when the connection failed
+      this.client = null;
       return false;
     }
   }
@@ -206,12 +204,7 @@ export class ImapWorker {
 export function createImapWorkers(): ImapWorker[] {
   const workers: ImapWorker[] = [];
   
-  const host = process.env.IMAP_HOST;
-  
-  if (!host) {
-    console.log("IMAP_HOST not configured, skipping email polling");
-    return workers;
-  }
+  const host = "imap.one.com";
 
   const configs: ImapConfig[] = [
     {

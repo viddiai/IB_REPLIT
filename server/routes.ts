@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug route to test IMAP connection (remove in production)
   app.get('/api/test-imap', async (req, res) => {
     try {
-      const host = process.env.IMAP_HOST;
+      const host = "imap.one.com";
       const facilities = [
         { name: 'Trollhättan', user: process.env.IMAP_TROLLHATTAN_USER, password: process.env.IMAP_TROLLHATTAN_PASSWORD },
         { name: 'Göteborg', user: process.env.IMAP_GOTEBORG_USER, password: process.env.IMAP_GOTEBORG_PASSWORD },
@@ -148,13 +148,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const facility of facilities) {
         const result: any = {
           facility: facility.name,
-          host: host || 'NOT SET',
+          host: host,
           port: 993,
           userConfigured: !!facility.user,
           passwordConfigured: !!facility.password
         };
 
-        if (!host || !facility.user || !facility.password) {
+        if (!facility.user || !facility.password) {
           result.status = 'error';
           result.message = 'Missing configuration';
           results.push(result);
