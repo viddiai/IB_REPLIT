@@ -19,6 +19,7 @@ import LeadsList from "@/pages/LeadsList";
 import LeadDetail from "@/pages/LeadDetail";
 import SellerPools from "@/pages/SellerPools";
 import Settings from "@/pages/Settings";
+import TestImap from "@/pages/TestImap";
 
 function AuthenticatedRouter() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -59,6 +60,7 @@ function AuthenticatedRouter() {
               <Route path="/leads/:id" component={LeadDetail} />
               <Route path="/seller-pools" component={SellerPools} />
               <Route path="/settings" component={Settings} />
+              <Route path="/test-imap" component={TestImap} />
               <Route component={NotFound} />
             </Switch>
           </main>

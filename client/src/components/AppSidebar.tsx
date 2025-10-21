@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, Users } from "lucide-react";
+import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, Users, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,12 @@ const menuItems = [
     title: "Resurspool",
     url: "/seller-pools",
     icon: Users,
+    roles: ["MANAGER"],
+  },
+  {
+    title: "IMAP Test",
+    url: "/test-imap",
+    icon: Mail,
     roles: ["MANAGER"],
   },
   {
