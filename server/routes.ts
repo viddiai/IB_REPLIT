@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from "./auth";
 import { sendPasswordResetEmail } from "./email";
 import passport from "passport";
 import crypto from "crypto";
+import { ImapFlow } from "imapflow";
 
 // Helper function to generate a secure random token
 function generateResetToken(): string {
@@ -124,76 +125,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Debug route to test IMAP connection (remove in production)
   app.get('/api/test-imap', async (req, res) => {
-    const { ImapFlow } = await import('imapflow');
-    
-    const host = process.env.IMAP_HOST;
-    const facilities = [
-      { name: 'Trollhättan', user: process.env.IMAP_TROLLHATTAN_USER, password: process.env.IMAP_TROLLHATTAN_PASSWORD },
-      { name: 'Göteborg', user: process.env.IMAP_GOTEBORG_USER, password: process.env.IMAP_GOTEBORG_PASSWORD },
-      { name: 'Falkenberg', user: process.env.IMAP_FALKENBERG_USER, password: process.env.IMAP_FALKENBERG_PASSWORD }
-    ];
+    try {
+      const host = process.env.IMAP_HOST;
+      const facilities = [
+        { name: 'Trollhättan', user: process.env.IMAP_TROLLHATTAN_USER, password: process.env.IMAP_TROLLHATTAN_PASSWORD },
+        { name: 'Göteborg', user: process.env.IMAP_GOTEBORG_USER, password: process.env.IMAP_GOTEBORG_PASSWORD },
+        { name: 'Falkenberg', user: process.env.IMAP_FALKENBERG_USER, password: process.env.IMAP_FALKENBERG_PASSWORD }
+      ];
 
-    const results = [];
+      const results = [];
 
-    for (const facility of facilities) {
-      const result: any = {
-        facility: facility.name,
-        host: host || 'NOT SET',
-        port: 993,
-        userConfigured: !!facility.user,
-        passwordConfigured: !!facility.password
-      };
-
-      if (!host || !facility.user || !facility.password) {
-        result.status = 'error';
-        result.message = 'Missing configuration';
-        results.push(result);
-        continue;
-      }
-
-      try {
-        const client = new ImapFlow({
-          host,
+      for (const facility of facilities) {
+        const result: any = {
+          facility: facility.name,
+          host: host || 'NOT SET',
           port: 993,
-          secure: true,
-          auth: {
-            user: facility.user,
-            pass: facility.password,
-          },
-          logger: {
-            debug: (msg: any) => console.log(`[${facility.name} DEBUG]`, msg),
-            info: (msg: any) => console.log(`[${facility.name} INFO]`, msg),
-            warn: (msg: any) => console.log(`[${facility.name} WARN]`, msg),
-            error: (msg: any) => console.log(`[${facility.name} ERROR]`, msg),
-          },
-        });
+          userConfigured: !!facility.user,
+          passwordConfigured: !!facility.password
+        };
 
-        const connectPromise = client.connect();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout after 20 seconds')), 20000)
-        );
+        if (!host || !facility.user || !facility.password) {
+          result.status = 'error';
+          result.message = 'Missing configuration';
+          results.push(result);
+          continue;
+        }
 
-        await Promise.race([connectPromise, timeoutPromise]);
-        
-        result.status = 'success';
-        result.message = 'Connected successfully';
-        
-        await client.logout();
-      } catch (error: any) {
-        result.status = 'error';
-        result.message = error.message || 'Unknown error';
-        result.errorName = error.name;
-        result.errorCode = error.code;
-        result.errorStack = error.stack?.split('\n').slice(0, 3).join('\n');
+        try {
+          const client = new ImapFlow({
+            host,
+            port: 993,
+            secure: true,
+            auth: {
+              user: facility.user,
+              pass: facility.password,
+            },
+            logger: {
+              debug: (msg: any) => console.log(`[${facility.name} DEBUG]`, msg),
+              info: (msg: any) => console.log(`[${facility.name} INFO]`, msg),
+              warn: (msg: any) => console.log(`[${facility.name} WARN]`, msg),
+              error: (msg: any) => console.log(`[${facility.name} ERROR]`, msg),
+            },
+          });
+
+          const connectPromise = client.connect();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connection timeout after 20 seconds')), 20000)
+          );
+
+          await Promise.race([connectPromise, timeoutPromise]);
+          
+          result.status = 'success';
+          result.message = 'Connected successfully';
+          
+          await client.logout();
+        } catch (error: any) {
+          result.status = 'error';
+          result.message = error.message || 'Unknown error';
+          result.errorName = error.name;
+          result.errorCode = error.code;
+          result.errorStack = error.stack?.split('\n').slice(0, 3).join('\n');
+        }
+
+        results.push(result);
       }
 
-      results.push(result);
+      res.json({
+        timestamp: new Date().toISOString(),
+        results
+      });
+    } catch (error: any) {
+      console.error('Error in /api/test-imap:', error);
+      res.status(500).json({
+        timestamp: new Date().toISOString(),
+        error: error.message || 'Internal server error',
+        results: []
+      });
     }
-
-    res.json({
-      timestamp: new Date().toISOString(),
-      results
-    });
   });
 
   // Forgot password endpoint
