@@ -135,6 +135,12 @@ export class ImapWorker {
 
     if (!parsed) {
       console.log(`[${this.config.name}] Could not parse email from ${from} with subject: ${subject}`);
+      console.log(`[${this.config.name}] ========== EMAIL DEBUG START ==========`);
+      console.log(`[${this.config.name}] FROM: ${from}`);
+      console.log(`[${this.config.name}] SUBJECT: ${subject}`);
+      console.log(`[${this.config.name}] HTML CONTENT:`);
+      console.log(htmlContent.substring(0, 5000)); // First 5000 chars
+      console.log(`[${this.config.name}] ========== EMAIL DEBUG END ==========`);
       return;
     }
 
