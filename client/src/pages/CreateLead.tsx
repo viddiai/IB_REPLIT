@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save } from "lucide-react";
 import { insertLeadSchema } from "@shared/schema";
+import type { User } from "@shared/schema";
 
 const createLeadFormSchema = insertLeadSchema.extend({
   contactEmail: z.preprocess(
@@ -51,6 +52,10 @@ type CreateLeadFormData = z.infer<typeof createLeadFormSchema>;
 export default function CreateLead() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
 
   const form = useForm<CreateLeadFormData>({
     resolver: zodResolver(createLeadFormSchema),
@@ -100,7 +105,11 @@ export default function CreateLead() {
   });
 
   const onSubmit = (data: CreateLeadFormData) => {
-    createLeadMutation.mutate(data);
+    const submitData = {
+      ...data,
+      assignedToId: data.assignedToId === "unassigned" ? undefined : data.assignedToId,
+    };
+    createLeadMutation.mutate(submitData);
   };
 
   return (
@@ -176,6 +185,34 @@ export default function CreateLead() {
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="assignedToId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tilldela säljare</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-assigned-to">
+                          <SelectValue placeholder="Välj säljare (valfritt)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Ingen tilldelning</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.firstName && user.lastName 
+                              ? `${user.firstName} ${user.lastName}` 
+                              : user.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-foreground" data-testid="text-section-contact">Kontaktinformation</h3>
