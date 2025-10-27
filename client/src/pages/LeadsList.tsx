@@ -8,18 +8,23 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import type { Lead } from "@shared/schema";
+import type { LeadWithAssignedTo, User } from "@shared/schema";
 
 export default function LeadsList() {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
+  const [sellerFilter, setSellerFilter] = useState("all");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const { data: leads, isLoading } = useQuery<Lead[]>({
+  const { data: leads, isLoading } = useQuery<LeadWithAssignedTo[]>({
     queryKey: ["/api/leads"],
+  });
+
+  const { data: users } = useQuery<User[]>({
+    queryKey: ["/api/users"],
   });
 
   const assignLeadMutation = useMutation({
@@ -58,10 +63,15 @@ export default function LeadsList() {
 
       const matchesSource = sourceFilter === "all" || lead.source === sourceFilter;
       const matchesLocation = locationFilter === "all" || lead.anlaggning === locationFilter;
+      
+      const matchesSeller = 
+        sellerFilter === "all" || 
+        (sellerFilter === "unassigned" && !lead.assignedToId) ||
+        (sellerFilter !== "unassigned" && lead.assignedToId === sellerFilter);
 
-      return matchesTab && matchesSearch && matchesSource && matchesLocation;
+      return matchesTab && matchesSearch && matchesSource && matchesLocation && matchesSeller;
     });
-  }, [leads, activeTab, search, sourceFilter, locationFilter]);
+  }, [leads, activeTab, search, sourceFilter, locationFilter, sellerFilter]);
 
   const counts = useMemo(() => {
     if (!leads) return { all: 0, new: 0, contacted: 0, won: 0, lost: 0 };
@@ -109,6 +119,9 @@ export default function LeadsList() {
         onSourceChange={setSourceFilter}
         locationFilter={locationFilter}
         onLocationChange={setLocationFilter}
+        sellerFilter={sellerFilter}
+        onSellerChange={setSellerFilter}
+        sellers={users || []}
       />
 
       <div className="space-y-4">
@@ -130,6 +143,7 @@ export default function LeadsList() {
                 location={lead.anlaggning || ""}
                 status={lead.status}
                 createdAt={lead.createdAt.toString().split('T')[0]}
+                assignedTo={lead.assignedToName || (lead.assignedToId ? "Tilldelad" : undefined)}
                 vehicleLink={lead.vehicleLink || undefined}
                 onViewDetails={() => {
                   setLocation(`/leads/${lead.id}`);

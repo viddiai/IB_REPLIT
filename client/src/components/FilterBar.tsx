@@ -16,6 +16,9 @@ interface FilterBarProps {
   onSourceChange?: (value: string) => void;
   locationFilter?: string;
   onLocationChange?: (value: string) => void;
+  sellerFilter?: string;
+  onSellerChange?: (value: string) => void;
+  sellers?: Array<{ id: string; firstName: string | null; lastName: string | null }>;
 }
 
 export default function FilterBar({
@@ -25,6 +28,9 @@ export default function FilterBar({
   onSourceChange,
   locationFilter = "all",
   onLocationChange,
+  sellerFilter = "all",
+  onSellerChange,
+  sellers = [],
 }: FilterBarProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-4">
@@ -61,6 +67,21 @@ export default function FilterBar({
           <SelectItem value="Falkenberg">Falkenberg</SelectItem>
           <SelectItem value="Göteborg">Göteborg</SelectItem>
           <SelectItem value="Trollhättan">Trollhättan</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={sellerFilter} onValueChange={onSellerChange}>
+        <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-seller">
+          <SelectValue placeholder="Säljare" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Alla säljare</SelectItem>
+          <SelectItem value="unassigned">Ej tilldelade</SelectItem>
+          {sellers.map((seller) => (
+            <SelectItem key={seller.id} value={seller.id}>
+              {seller.firstName && seller.lastName ? `${seller.firstName} ${seller.lastName}` : seller.id}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

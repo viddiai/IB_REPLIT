@@ -39,7 +39,9 @@ Preferred communication style: Simple, everyday language.
 **Key UI Patterns:**
 - Public contact form (/kontakt) for website visitors to submit inquiries without authentication
 - Dashboard with KPI cards showing metrics (conversion rates, response times)
-- Lead list views with tabbed filtering (all, new, contacted, won, lost)
+- Lead list views with tabbed filtering (all, new, contacted, won, lost) and seller filtering:
+  - Filter by seller (all sellers, unassigned, or specific seller)
+  - Display assigned seller name or "Ej tilldelad" on each lead card
 - Detailed lead views (/leads/:id) with comprehensive information:
   - Contact info and vehicle details display
   - Status badges and timeline information
@@ -148,6 +150,7 @@ Enums:
 - All database operations go through storage service
 - Query filters support role-based data visibility (sellers see only assigned leads, managers see all)
 - Efficient querying with indexes on frequently filtered columns
+- `getLeads` performs LEFT JOIN with users table to include assigned seller names (assignedToName)
 
 **API Routes:**
 

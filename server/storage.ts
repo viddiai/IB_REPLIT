@@ -5,6 +5,7 @@ import type {
   InsertUser,
   UpsertUser,
   Lead,
+  LeadWithAssignedTo,
   InsertLead,
   LeadNote,
   InsertLeadNote,
@@ -31,7 +32,7 @@ export interface IStorage {
     source?: string;
     anlaggning?: string;
     listingId?: string;
-  }): Promise<Lead[]>;
+  }): Promise<LeadWithAssignedTo[]>;
   getLead(id: string): Promise<Lead | undefined>;
   getLeadById(id: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
@@ -132,9 +133,7 @@ export class DbStorage implements IStorage {
     source?: string;
     anlaggning?: string;
     listingId?: string;
-  }): Promise<Lead[]> {
-    let query = db.select().from(leads).where(eq(leads.isDeleted, false));
-    
+  }): Promise<LeadWithAssignedTo[]> {
     const conditions = [eq(leads.isDeleted, false)];
     
     if (filters?.assignedToId) {
@@ -153,7 +152,23 @@ export class DbStorage implements IStorage {
       conditions.push(eq(leads.listingId, filters.listingId));
     }
     
-    return db.select().from(leads).where(and(...conditions)).orderBy(desc(leads.createdAt));
+    const result = await db
+      .select({
+        lead: leads,
+        assignedToFirstName: users.firstName,
+        assignedToLastName: users.lastName,
+      })
+      .from(leads)
+      .leftJoin(users, eq(leads.assignedToId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(leads.createdAt));
+    
+    return result.map(row => ({
+      ...row.lead,
+      assignedToName: row.assignedToFirstName && row.assignedToLastName
+        ? `${row.assignedToFirstName} ${row.assignedToLastName}`
+        : null
+    }));
   }
 
   async getLead(id: string): Promise<Lead | undefined> {

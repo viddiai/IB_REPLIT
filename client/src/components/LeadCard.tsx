@@ -94,12 +94,12 @@ export default function LeadCard({
           </div>
         )}
 
-        {assignedTo && (
-          <div className="text-sm">
-            <span className="text-muted-foreground">Tilldelad: </span>
-            <span className="text-foreground font-medium">{assignedTo}</span>
-          </div>
-        )}
+        <div className="text-sm">
+          <span className="text-muted-foreground">Tilldelad: </span>
+          <span className="text-foreground font-medium" data-testid={`lead-assigned-${id}`}>
+            {assignedTo || "Ej tilldelad"}
+          </span>
+        </div>
 
         {nextStep && (
           <div className="bg-muted/50 p-3 rounded-md">
