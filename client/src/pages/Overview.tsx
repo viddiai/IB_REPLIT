@@ -12,44 +12,50 @@ export default function Overview() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 hover-elevate">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Nya leads idag</p>
-              <p className="text-3xl font-bold text-foreground mt-2">8</p>
-              <p className="text-sm text-muted-foreground mt-1">+2 från igår</p>
+        <Link href="/leads">
+          <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-nya-leads-idag">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Nya leads idag</p>
+                <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-nya-leads-idag">8</p>
+                <p className="text-sm text-muted-foreground mt-1">+2 från igår</p>
+              </div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-primary" />
+              </div>
             </div>
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-primary" />
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="p-6 hover-elevate">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Väntande tilldelning</p>
-              <p className="text-3xl font-bold text-foreground mt-2">12</p>
-              <p className="text-sm text-muted-foreground mt-1">Kräver åtgärd</p>
+        <Link href="/leads">
+          <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-vantande-tilldelning">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Väntande tilldelning</p>
+                <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-vantande-tilldelning">12</p>
+                <p className="text-sm text-muted-foreground mt-1">Kräver åtgärd</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
             </div>
-            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </Link>
 
-        <Card className="p-6 hover-elevate">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Aktiva säljare</p>
-              <p className="text-3xl font-bold text-foreground mt-2">8</p>
-              <p className="text-sm text-muted-foreground mt-1">3 anläggningar</p>
+        <Link href="/seller-pools">
+          <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-aktiva-saljare">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Aktiva säljare</p>
+                <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-aktiva-saljare">8</p>
+                <p className="text-sm text-muted-foreground mt-1">3 anläggningar</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
             </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </Link>
       </div>
 
       <Card className="p-6">
