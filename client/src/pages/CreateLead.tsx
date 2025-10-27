@@ -124,11 +124,10 @@ export default function CreateLead() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground" data-testid="text-create-lead-title">Skapa ny lead</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="text-create-lead-title">Skapa nytt lead</h1>
           <p className="text-muted-foreground mt-1" data-testid="text-create-lead-subtitle">Fyll i formuläret för att skapa en ny lead</p>
         </div>
       </div>
-
       <Card>
         <CardHeader>
           <CardTitle data-testid="text-card-title">Lead-information</CardTitle>
