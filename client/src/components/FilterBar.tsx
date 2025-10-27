@@ -32,6 +32,12 @@ export default function FilterBar({
   onSellerChange,
   sellers = [],
 }: FilterBarProps) {
+  const sortedSellers = [...sellers].sort((a, b) => {
+    const nameA = a.firstName || "";
+    const nameB = b.firstName || "";
+    return nameA.localeCompare(nameB, 'sv');
+  });
+
   return (
     <div className="flex flex-col sm:flex-row gap-4">
       <div className="relative flex-1">
@@ -77,7 +83,7 @@ export default function FilterBar({
         <SelectContent>
           <SelectItem value="all">Alla säljare</SelectItem>
           <SelectItem value="unassigned">Ej tilldelade</SelectItem>
-          {sellers.map((seller) => (
+          {sortedSellers.map((seller) => (
             <SelectItem key={seller.id} value={seller.id}>
               {seller.firstName && seller.lastName ? `${seller.firstName} ${seller.lastName}` : seller.id}
             </SelectItem>
