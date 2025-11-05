@@ -193,6 +193,15 @@ export default function LeadDetail() {
   };
 
   const handleSaveVehicleInfo = () => {
+    if (editRegistrationNumber && !/^[A-Z]{3}\d{2}[A-Z0-9]$/i.test(editRegistrationNumber)) {
+      toast({
+        title: "Ogiltigt format",
+        description: "Regnummer måste vara i formatet ABC123 eller ABC12D",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     updateVehicleInfoMutation.mutate({
       registrationNumber: editRegistrationNumber || undefined,
       anlaggning: editAnlaggning || undefined,
@@ -348,7 +357,7 @@ export default function LeadDetail() {
         <Card data-testid="card-vehicle-info">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Fordonsinformation</CardTitle>
-            {!editingVehicleInfo && (
+            {!editingVehicleInfo && (currentUser?.role === "MANAGER" || lead.assignedToId === currentUser?.id) && (
               <Button
                 variant="ghost"
                 size="sm"
