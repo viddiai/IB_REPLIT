@@ -231,7 +231,8 @@ export default function LeadDetail() {
     let dueDateTimeString: string | undefined = undefined;
     if (taskDueDate) {
       const localDateTimeString = `${taskDueDate}T${taskDueTime || "09:00"}:00`;
-      const utcDate = fromZonedTime(localDateTimeString, SWEDISH_TZ);
+      const localDate = new Date(localDateTimeString);
+      const utcDate = fromZonedTime(localDate, SWEDISH_TZ);
       dueDateTimeString = utcDate.toISOString();
     }
     createTaskMutation.mutate({
