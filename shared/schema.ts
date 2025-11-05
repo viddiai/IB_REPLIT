@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   role: roleEnum("role").notNull().default("SALJARE"),
   anlaggning: anlaggningEnum("anlaggning"),
   isActive: boolean("is_active").notNull().default(true),
+  emailOnLeadAssignment: boolean("email_on_lead_assignment").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -124,6 +125,17 @@ export const statusChangeHistory = pgTable("status_change_history", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const emailNotificationLogs = pgTable("email_notification_logs", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
+  leadId: varchar("lead_id", { length: 255 }).notNull().references(() => leads.id, { onDelete: "cascade" }),
+  emailTo: varchar("email_to").notNull(),
+  subject: text("subject").notNull(),
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -157,6 +169,10 @@ export const updateProfileSchema = z.object({
   firstName: z.string().min(1, "Förnamn krävs").optional(),
   lastName: z.string().min(1, "Efternamn krävs").optional(),
   profileImageUrl: z.string().url("Ogiltig bild-URL").optional().nullable(),
+});
+
+export const updateNotificationPreferencesSchema = z.object({
+  emailOnLeadAssignment: z.boolean(),
 });
 
 export const changePasswordSchema = z.object({
@@ -292,3 +308,11 @@ export type StatusChangeHistory = typeof statusChangeHistory.$inferSelect;
 export type StatusChangeHistoryWithUser = StatusChangeHistory & {
   changedByName: string | null;
 };
+
+export const insertEmailNotificationLogSchema = createInsertSchema(emailNotificationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEmailNotificationLog = z.infer<typeof insertEmailNotificationLogSchema>;
+export type EmailNotificationLog = typeof emailNotificationLogs.$inferSelect;

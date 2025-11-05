@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools, passwordResetTokens, statusChangeHistory } from "@shared/schema";
+import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools, passwordResetTokens, statusChangeHistory, emailNotificationLogs } from "@shared/schema";
 import type {
   User,
   InsertUser,
@@ -18,6 +18,8 @@ import type {
   StatusChangeHistory,
   StatusChangeHistoryWithUser,
   InsertStatusChangeHistory,
+  EmailNotificationLog,
+  InsertEmailNotificationLog,
 } from "@shared/schema";
 import { eq, and, desc, asc, sql, lt, inArray, gte } from "drizzle-orm";
 import { formatInTimeZone, toDate } from "date-fns-tz";
@@ -89,6 +91,8 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<{ id: string; userId: string; token: string; expiresAt: Date; usedAt: Date | null } | undefined>;
   markPasswordResetTokenAsUsed(token: string): Promise<void>;
   deleteExpiredPasswordResetTokens(): Promise<void>;
+  
+  logEmailNotification(log: InsertEmailNotificationLog): Promise<EmailNotificationLog>;
 }
 
 export class DbStorage implements IStorage {
@@ -590,6 +594,14 @@ export class DbStorage implements IStorage {
     await db
       .delete(passwordResetTokens)
       .where(lt(passwordResetTokens.expiresAt, new Date()));
+  }
+
+  async logEmailNotification(log: InsertEmailNotificationLog): Promise<EmailNotificationLog> {
+    const [notificationLog] = await db
+      .insert(emailNotificationLogs)
+      .values(log)
+      .returning();
+    return notificationLog;
   }
 }
 

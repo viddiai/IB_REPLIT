@@ -7,9 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Upload, Lock, Power, AlertCircle, Clock } from "lucide-react";
+import { Loader2, Upload, Lock, Power, AlertCircle, Clock, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -81,7 +81,7 @@ function SellerPoolStatus({ pool, userId }: { pool: SellerPool; userId: string }
           checked={pool.isEnabled}
           onCheckedChange={(checked) => {
             updateSellerPoolStatusMutation.mutate({
-              poolId: pool.id,
+              poolId: pool.id as any,
               isEnabled: checked,
             });
           }}
@@ -223,6 +223,34 @@ export default function Settings() {
       toast({
         title: "Fel",
         description: error.message || "Kunde inte ändra lösenord. Kontrollera att du angett rätt nuvarande lösenord.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailOnLeadAssignment ?? true);
+
+  useEffect(() => {
+    if (user?.emailOnLeadAssignment !== undefined) {
+      setEmailNotificationsEnabled(user.emailOnLeadAssignment);
+    }
+  }, [user?.emailOnLeadAssignment]);
+
+  const updateNotificationsMutation = useMutation({
+    mutationFn: async (data: { emailOnLeadAssignment: boolean }) => {
+      return apiRequest("PATCH", `/api/users/${user?.id}/notifications`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Inställningar uppdaterade",
+        description: "Dina notifikationsinställningar har sparats.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte uppdatera notifikationsinställningar. Försök igen.",
         variant: "destructive",
       });
     },
@@ -448,6 +476,45 @@ export default function Settings() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            E-postnotifikationer
+          </CardTitle>
+          <CardDescription>Hantera hur du får e-postmeddelanden</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="email-notifications" className="text-base font-medium">
+                E-posta mig när jag tilldelas nya leads
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Få ett e-postmeddelande varje gång ett nytt lead tilldelas till dig
+              </p>
+            </div>
+            <Switch
+              id="email-notifications"
+              checked={emailNotificationsEnabled}
+              onCheckedChange={(checked) => {
+                setEmailNotificationsEnabled(checked);
+                updateNotificationsMutation.mutate({ emailOnLeadAssignment: checked });
+              }}
+              disabled={updateNotificationsMutation.isPending}
+              data-testid="switch-email-notifications"
+            />
+          </div>
+
+          <div className="flex items-start gap-2 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-3 rounded-md">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <p>
+              E-postnotifikationer skickas till <strong>{user.email}</strong>. Du kan stänga av notifikationer när som helst.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

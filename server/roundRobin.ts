@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { notificationService } from "./notificationService";
 import type { Lead, InsertLead } from "@shared/schema";
 
 export class RoundRobinService {
@@ -46,7 +47,11 @@ export class RoundRobinService {
     const assignedToId = await this.assignLeadToNextSeller(leadData.anlaggning);
     
     if (assignedToId) {
-      return await storage.assignLead(lead.id, assignedToId);
+      const assignedLead = await storage.assignLead(lead.id, assignedToId);
+      
+      await notificationService.notifyLeadAssignment(lead.id, assignedToId);
+      
+      return assignedLead;
     }
 
     return lead;

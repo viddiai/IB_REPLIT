@@ -2,9 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, sanitizeUser } from "./localAuth";
-import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, publicContactSchema, bytbilWebhookSchema } from "@shared/schema";
+import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, updateNotificationPreferencesSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, publicContactSchema, bytbilWebhookSchema } from "@shared/schema";
 import { z } from "zod";
 import { roundRobinService } from "./roundRobin";
+import { notificationService } from "./notificationService";
 import { hashPassword, verifyPassword } from "./auth";
 import { sendPasswordResetEmail } from "./email";
 import passport from "passport";
@@ -323,6 +324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (assignedToId) {
           await storage.assignLead(lead.id, assignedToId);
           console.log(`✅ Public contact form lead ${lead.id} assigned to ${assignedToId} for ${validatedData.anlaggning}`);
+          
+          await notificationService.notifyLeadAssignment(lead.id, assignedToId);
         }
       } catch (error) {
         console.error(`❌ Failed to assign public contact form lead ${lead.id}:`, error);
@@ -495,6 +498,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating profile:", error);
       res.status(500).json({ message: "Misslyckades att uppdatera profil" });
+    }
+  });
+
+  app.patch('/api/users/:id/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const targetUserId = req.params.id;
+
+      if (userId !== targetUserId) {
+        return res.status(403).json({ message: "Du kan bara uppdatera dina egna inställningar" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Användare hittades inte" });
+      }
+
+      const validatedData = updateNotificationPreferencesSchema.parse(req.body);
+      const updatedUser = await storage.updateUser(userId, validatedData);
+
+      res.json(sanitizeUser(updatedUser));
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valideringsfel", errors: error.errors });
+      }
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Misslyckades att uppdatera notifikationsinställningar" });
     }
   });
 
@@ -671,6 +701,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedLead = await storage.assignLead(req.params.id, nextSellerId);
+      
+      await notificationService.notifyLeadAssignment(req.params.id, nextSellerId);
+      
       res.json(updatedLead);
     } catch (error: any) {
       if (error.message === "Lead not found") {
@@ -720,6 +753,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fromValue: currentLead.assignedToId || null,
         toValue: validatedData.assignedToId,
       });
+
+      await notificationService.notifyLeadAssignment(req.params.id, validatedData.assignedToId);
 
       res.json(updatedLead);
     } catch (error: any) {
