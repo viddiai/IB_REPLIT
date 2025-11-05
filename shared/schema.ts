@@ -191,6 +191,16 @@ export const insertLeadTaskSchema = createInsertSchema(leadTasks).omit({
   id: true,
   createdAt: true,
   completedAt: true,
+}).extend({
+  dueDate: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined) return null;
+      if (val instanceof Date) return val;
+      if (typeof val === 'string') return new Date(val);
+      return val;
+    },
+    z.date().nullable().optional()
+  ),
 });
 
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
