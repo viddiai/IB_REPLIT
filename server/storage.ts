@@ -54,8 +54,11 @@ export interface IStorage {
   getAuditLogs(leadId: string): Promise<AuditLog[]>;
   
   getSellerPools(anlaggning?: string): Promise<SellerPool[]>;
+  getSellerPoolsByUserId(userId: string): Promise<SellerPool[]>;
   createSellerPool(pool: InsertSellerPool): Promise<SellerPool>;
   updateSellerPool(id: string, data: Partial<InsertSellerPool>): Promise<SellerPool | undefined>;
+  deleteSellerPool(id: string): Promise<void>;
+  syncUserFacilities(userId: string, anlaggningar: string[]): Promise<void>;
   
   getDashboardStats(filters?: {
     userId?: string;
@@ -364,6 +367,14 @@ export class DbStorage implements IStorage {
     return db.select().from(sellerPools).orderBy(sellerPools.sortOrder);
   }
 
+  async getSellerPoolsByUserId(userId: string): Promise<SellerPool[]> {
+    return db
+      .select()
+      .from(sellerPools)
+      .where(eq(sellerPools.userId, userId))
+      .orderBy(sellerPools.anlaggning);
+  }
+
   async createSellerPool(pool: InsertSellerPool): Promise<SellerPool> {
     const [sellerPool] = await db.insert(sellerPools).values(pool).returning();
     return sellerPool;
@@ -376,6 +387,42 @@ export class DbStorage implements IStorage {
       .where(eq(sellerPools.id, id))
       .returning();
     return pool;
+  }
+
+  async deleteSellerPool(id: string): Promise<void> {
+    await db.delete(sellerPools).where(eq(sellerPools.id, id));
+  }
+
+  async syncUserFacilities(userId: string, anlaggningar: string[]): Promise<void> {
+    // Get existing pools for this user
+    const existingPools = await this.getSellerPoolsByUserId(userId);
+    const existingFacilities = existingPools.map(p => p.anlaggning as string);
+    
+    // Find facilities to add and remove
+    const facilitiesToAdd = anlaggningar.filter(f => !existingFacilities.includes(f));
+    const facilitiesToRemove = existingPools.filter(p => !anlaggningar.includes(p.anlaggning));
+    
+    // Get the highest sort order across all facilities for this user
+    let maxSortOrder = 0;
+    if (existingPools.length > 0) {
+      maxSortOrder = Math.max(...existingPools.map(p => p.sortOrder));
+    }
+    
+    // Add new facility associations
+    for (const facility of facilitiesToAdd) {
+      maxSortOrder++;
+      await this.createSellerPool({
+        userId,
+        anlaggning: facility as any,
+        isEnabled: true,
+        sortOrder: maxSortOrder,
+      });
+    }
+    
+    // Remove old facility associations
+    for (const pool of facilitiesToRemove) {
+      await this.deleteSellerPool(pool.id);
+    }
   }
 
   async getDashboardStats(filters?: {
