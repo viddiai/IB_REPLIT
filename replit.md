@@ -32,6 +32,14 @@ Lead objects include comprehensive vehicle information:
 - External IDs: Verendus-ID for integration with external systems, listingId for Bytbil/Blocket
 - Contact information: name, email, phone
 - Status tracking with timestamps for assignment, first contact, and closure
+- Registration timestamp: Automatically captured createdAt timestamp displayed in Swedish timezone (CET/CEST) in format YYYY-MM-DD HH:MM
+
+Task management features:
+- Tasks include description, due date with time, completion status, and timestamps
+- Time input with default value of 09:00 when creating tasks
+- All timestamps stored in UTC, displayed in Swedish timezone (Europe/Stockholm)
+- Tasks sorted chronologically by date and time, with tasks without due dates appearing last
+- Display format: "YYYY-MM-DD HH:MM - Task description"
 
 #### API Routes
 The API includes public endpoints for contact forms and Bytbil webhooks, authentication routes for login/logout and password management, and protected routes for managing leads, notes, tasks, user profiles, and seller pools. Dashboard endpoints provide KPI statistics with filtering capabilities.
@@ -55,4 +63,4 @@ Replit OAuth (OIDC) is the primary authentication method, syncing user profiles 
 -   **Blocket:** Email integration for lead notifications, requiring specific parsing logic.
 
 #### NPM Dependencies
-Key dependencies include `express`, `react`, `typescript`, `vite`, `drizzle-orm`, `@neondatabase/serverless`, `@tanstack/react-query`, `passport`, `express-session`, `openid-client`, `@radix-ui/*`, `tailwindcss`, `recharts`, `lucide-react`, `imapflow`, `cheerio`, `resend`, `argon2`, and `zod`.
+Key dependencies include `express`, `react`, `typescript`, `vite`, `drizzle-orm`, `@neondatabase/serverless`, `@tanstack/react-query`, `passport`, `express-session`, `openid-client`, `@radix-ui/*`, `tailwindcss`, `recharts`, `lucide-react`, `imapflow`, `cheerio`, `resend`, `argon2`, `zod`, `date-fns`, and `date-fns-tz` (for Swedish timezone handling).
