@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Mail, Phone, ExternalLink, Loader2, Plus, CheckCircle2, Circle, UserCog } from "lucide-react";
+import { ArrowLeft, Mail, Phone, ExternalLink, Loader2, Plus, CheckCircle2, Circle, UserCog, Edit2, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -28,6 +28,11 @@ export default function LeadDetail() {
   const [taskDueDate, setTaskDueDate] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [newStatus, setNewStatus] = useState("");
+  
+  const [editingVehicleInfo, setEditingVehicleInfo] = useState(false);
+  const [editRegistrationNumber, setEditRegistrationNumber] = useState("");
+  const [editAnlaggning, setEditAnlaggning] = useState("");
+  const [editVerendusId, setEditVerendusId] = useState("");
 
   const { data: lead, isLoading: leadLoading } = useQuery<Lead>({
     queryKey: [`/api/leads/${id}`],
@@ -158,6 +163,49 @@ export default function LeadDetail() {
       });
     },
   });
+
+  const updateVehicleInfoMutation = useMutation({
+    mutationFn: async (data: { registrationNumber?: string; anlaggning?: string; verendusId?: string }) => {
+      return await apiRequest("PATCH", `/api/leads/${id}/vehicle-info`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
+      setEditingVehicleInfo(false);
+      toast({
+        title: "Fordonsinformation uppdaterad",
+        description: "Ändringarna har sparats",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Fel",
+        description: error.message || "Kunde inte uppdatera fordonsinformation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditVehicleInfo = () => {
+    setEditRegistrationNumber(lead?.registrationNumber || "");
+    setEditAnlaggning(lead?.anlaggning || "");
+    setEditVerendusId(lead?.verendusId || "");
+    setEditingVehicleInfo(true);
+  };
+
+  const handleSaveVehicleInfo = () => {
+    updateVehicleInfoMutation.mutate({
+      registrationNumber: editRegistrationNumber || undefined,
+      anlaggning: editAnlaggning || undefined,
+      verendusId: editVerendusId || undefined,
+    });
+  };
+
+  const handleCancelEditVehicleInfo = () => {
+    setEditingVehicleInfo(false);
+    setEditRegistrationNumber("");
+    setEditAnlaggning("");
+    setEditVerendusId("");
+  };
 
   const handleCreateNote = () => {
     if (!noteContent.trim()) return;
@@ -298,32 +346,116 @@ export default function LeadDetail() {
         </Card>
 
         <Card data-testid="card-vehicle-info">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Fordonsinformation</CardTitle>
+            {!editingVehicleInfo && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEditVehicleInfo}
+                data-testid="button-edit-vehicle-info"
+              >
+                <Edit2 className="w-4 h-4" />
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Fordon</p>
               <p className="text-base" data-testid="text-vehicle-title">{lead.vehicleTitle}</p>
             </div>
-            {lead.registrationNumber && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Reg.Nr</p>
-                <p className="text-base" data-testid="text-registration-number">{lead.registrationNumber}</p>
-              </div>
+            
+            {editingVehicleInfo ? (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Reg.Nr</p>
+                  <Input
+                    value={editRegistrationNumber}
+                    onChange={(e) => setEditRegistrationNumber(e.target.value)}
+                    placeholder="ABC123"
+                    data-testid="input-edit-registration-number"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Anläggning</p>
+                  <Select value={editAnlaggning} onValueChange={setEditAnlaggning}>
+                    <SelectTrigger data-testid="select-edit-anlaggning">
+                      <SelectValue placeholder="Välj anläggning" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Falkenberg">Falkenberg</SelectItem>
+                      <SelectItem value="Göteborg">Göteborg</SelectItem>
+                      <SelectItem value="Trollhättan">Trollhättan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Verendus-ID</p>
+                  <Input
+                    value={editVerendusId}
+                    onChange={(e) => setEditVerendusId(e.target.value)}
+                    placeholder="ID"
+                    data-testid="input-edit-verendus-id"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    onClick={handleSaveVehicleInfo}
+                    disabled={updateVehicleInfoMutation.isPending}
+                    size="sm"
+                    data-testid="button-save-vehicle-info"
+                  >
+                    {updateVehicleInfoMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-1" />
+                        Spara
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelEditVehicleInfo}
+                    disabled={updateVehicleInfoMutation.isPending}
+                    size="sm"
+                    data-testid="button-cancel-edit-vehicle-info"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Avbryt
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {(lead.registrationNumber || editingVehicleInfo) && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Reg.Nr</p>
+                    <p className="text-base" data-testid="text-registration-number">
+                      {lead.registrationNumber || "-"}
+                    </p>
+                  </div>
+                )}
+                {lead.anlaggning && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Anläggning</p>
+                    <p className="text-base" data-testid="text-anlaggning">{lead.anlaggning}</p>
+                  </div>
+                )}
+                {(lead.verendusId || editingVehicleInfo) && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Verendus-ID</p>
+                    <p className="text-base" data-testid="text-verendus-id">
+                      {lead.verendusId || "-"}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
-            {lead.anlaggning && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Anläggning</p>
-                <p className="text-base" data-testid="text-anlaggning">{lead.anlaggning}</p>
-              </div>
-            )}
-            {lead.verendusId && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Verendus-ID</p>
-                <p className="text-base" data-testid="text-verendus-id">{lead.verendusId}</p>
-              </div>
-            )}
+            
             {lead.vehicleLink && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Länk</p>
