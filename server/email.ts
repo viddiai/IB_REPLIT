@@ -204,10 +204,31 @@ export async function sendLeadAssignmentEmail(user: User, lead: Lead) {
                   </div>
                 </div>
                 
-                <!-- Button -->
+                <!-- Action Buttons -->
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${leadUrl}" style="display: inline-block; background-color: hsl(0, 72%, 51%); color: white; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600;">
-                    Visa Lead
+                  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                      <td style="padding: 0 8px;">
+                        <a href="${baseUrl}/api/leads/${lead.id}/email-accept" style="display: inline-block; background-color: hsl(142, 71%, 45%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                          ✓ Acceptera Lead
+                        </a>
+                      </td>
+                      <td style="padding: 0 8px;">
+                        <a href="${baseUrl}/api/leads/${lead.id}/email-decline" style="display: inline-block; background-color: hsl(0, 0%, 60%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                          ✗ Avvisa Lead
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                
+                <p style="margin: 20px 0 10px 0; text-align: center; color: #999; font-size: 13px;">
+                  eller
+                </p>
+                
+                <div style="text-align: center; margin: 10px 0 30px 0;">
+                  <a href="${leadUrl}" style="display: inline-block; background-color: transparent; color: hsl(0, 72%, 51%); text-decoration: none; padding: 12px 30px; border: 2px solid hsl(0, 72%, 51%); border-radius: 6px; font-size: 14px; font-weight: 600;">
+                    Visa Lead i systemet
                   </a>
                 </div>
                 
@@ -307,9 +328,31 @@ export async function sendAcceptanceReminderEmail(user: User, lead: Lead, hoursR
                   </p>
                 </div>
                 
+                <!-- Action Buttons -->
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${leadUrl}" style="display: inline-block; background-color: hsl(142, 71%, 45%); color: white; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600;">
-                    Gå till leadet
+                  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                      <td style="padding: 0 8px;">
+                        <a href="${baseUrl}/api/leads/${lead.id}/email-accept" style="display: inline-block; background-color: hsl(142, 71%, 45%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                          ✓ Acceptera Nu
+                        </a>
+                      </td>
+                      <td style="padding: 0 8px;">
+                        <a href="${baseUrl}/api/leads/${lead.id}/email-decline" style="display: inline-block; background-color: hsl(0, 0%, 60%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                          ✗ Avvisa
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                
+                <p style="margin: 20px 0 10px 0; text-align: center; color: #999; font-size: 13px;">
+                  eller
+                </p>
+                
+                <div style="text-align: center; margin: 10px 0 30px 0;">
+                  <a href="${leadUrl}" style="display: inline-block; background-color: transparent; color: hsl(0, 72%, 51%); text-decoration: none; padding: 12px 30px; border: 2px solid hsl(0, 72%, 51%); border-radius: 6px; font-size: 14px; font-weight: 600;">
+                    Visa Lead i systemet
                   </a>
                 </div>
                 

@@ -30,6 +30,8 @@ interface LeadCardProps {
   } | null;
   onViewDetails?: () => void;
   onAssign?: () => void;
+  onAccept?: () => void;
+  onDecline?: () => void;
 }
 
 export default function LeadCard({
@@ -49,7 +51,9 @@ export default function LeadCard({
   nextStep,
   nextTask,
   onViewDetails,
-  onAssign
+  onAssign,
+  onAccept,
+  onDecline
 }: LeadCardProps) {
   const isPendingAcceptance = status === "VANTAR_PA_ACCEPT" && (acceptStatus === "pending" || !acceptStatus);
 
@@ -215,9 +219,30 @@ export default function LeadCard({
           </div>
         )}
 
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2 flex-wrap">
+          {isPendingAcceptance && onAccept && onDecline && (
+            <>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={onAccept}
+                data-testid={`button-accept-lead-${id}`}
+                className="bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+              >
+                Acceptera
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onDecline}
+                data-testid={`button-decline-lead-${id}`}
+              >
+                Avvisa
+              </Button>
+            </>
+          )}
           <Button 
-            variant="default" 
+            variant={isPendingAcceptance ? "outline" : "default"}
             size="sm" 
             onClick={onViewDetails}
             data-testid={`button-view-lead-${id}`}

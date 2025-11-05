@@ -831,8 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateLead(req.params.id, {
           status: "NY_INTRESSEANMALAN",
           assignedToId: null,
-          acceptStatus: null,
-          assignedAt: null
+          acceptStatus: null
         });
         return res.json({ message: "Lead declined, but no other sellers available" });
       }
@@ -841,6 +840,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error declining lead:", error);
       res.status(500).json({ message: "Failed to decline lead" });
+    }
+  });
+
+  app.get('/api/leads/:id/email-accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.redirect('/login?error=user_not_found');
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.redirect('/?error=lead_not_found');
+      }
+
+      if (lead.assignedToId !== userId) {
+        return res.redirect(`/leads/${req.params.id}?error=not_assigned_to_you`);
+      }
+
+      if (lead.status !== "VANTAR_PA_ACCEPT") {
+        return res.redirect(`/leads/${req.params.id}?message=already_processed`);
+      }
+
+      await storage.acceptLead(req.params.id, userId);
+      
+      return res.redirect(`/leads/${req.params.id}?success=lead_accepted`);
+    } catch (error: any) {
+      console.error("Error accepting lead via email:", error);
+      return res.redirect(`/leads/${req.params.id}?error=failed_to_accept`);
+    }
+  });
+
+  app.get('/api/leads/:id/email-decline', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.redirect('/login?error=user_not_found');
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.redirect('/?error=lead_not_found');
+      }
+
+      if (lead.assignedToId !== userId) {
+        return res.redirect(`/leads/${req.params.id}?error=not_assigned_to_you`);
+      }
+
+      if (lead.status !== "VANTAR_PA_ACCEPT") {
+        return res.redirect(`/leads/${req.params.id}?message=already_processed`);
+      }
+
+      if (!lead.anlaggning) {
+        return res.redirect(`/leads/${req.params.id}?error=no_facility`);
+      }
+
+      await storage.declineLead(req.params.id, userId);
+
+      const nextSellerId = await roundRobinService.reassignLead(req.params.id, lead.anlaggning, userId);
+      if (!nextSellerId) {
+        await storage.updateLead(req.params.id, {
+          status: "NY_INTRESSEANMALAN",
+          assignedToId: null,
+          acceptStatus: null
+        });
+      }
+
+      return res.redirect('/?success=lead_declined');
+    } catch (error: any) {
+      console.error("Error declining lead via email:", error);
+      return res.redirect(`/leads/${req.params.id}?error=failed_to_decline`);
     }
   });
 

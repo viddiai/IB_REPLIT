@@ -24,6 +24,10 @@ export default function LeadsList() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  const { data: currentUser } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+
   const { data: leads, isLoading } = useQuery<LeadWithAssignedTo[]>({
     queryKey: ["/api/leads"],
   });
@@ -47,6 +51,46 @@ export default function LeadsList() {
       toast({
         title: "Fel",
         description: "Kunde inte tilldela lead",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const acceptLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      return await apiRequest("POST", `/api/leads/${leadId}/accept`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Lead accepterat",
+        description: "Du har accepterat leadet",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte acceptera lead",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const declineLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      return await apiRequest("POST", `/api/leads/${leadId}/decline`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Lead avvisat",
+        description: "Leadet har omfördelats till nästa säljare",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte avvisa lead",
         variant: "destructive",
       });
     },
@@ -166,6 +210,7 @@ export default function LeadsList() {
           </div>
         ) : (
           filteredLeads.map((lead) => {
+            const isAssignedToMe = currentUser && lead.assignedToId === currentUser.id;
             return (
               <LeadCard
                 key={lead.id}
@@ -189,6 +234,12 @@ export default function LeadsList() {
                 onAssign={() => {
                   assignLeadMutation.mutate(lead.id);
                 }}
+                onAccept={isAssignedToMe ? () => {
+                  acceptLeadMutation.mutate(lead.id);
+                } : undefined}
+                onDecline={isAssignedToMe ? () => {
+                  declineLeadMutation.mutate(lead.id);
+                } : undefined}
               />
             );
           })
