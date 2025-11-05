@@ -22,6 +22,14 @@ The frontend uses React with TypeScript, Vite, Wouter for routing, and TanStack 
 - Filter toggle: "Uppgifter idag" shows only leads with tasks due today
 - Fallback message: "Inga planerade uppgifter" when no upcoming tasks
 
+**Lead Acceptance UI:**
+- Accept/Decline buttons appear in lead cards (list view) and AcceptanceBanner (detail view)
+- Buttons only visible to the assigned seller (`lead.assignedToId === currentUser.id`)
+- Green "Acceptera" button and gray "Avvisa" button with countdown timer
+- Managers can view pending acceptance status but cannot accept/decline on behalf of sellers
+- Toast notifications for success/error feedback
+- Proper permission checks prevent unauthorized actions
+
 #### Backend Architecture
 Built with Node.js and Express in TypeScript, the backend employs a modular route registration pattern and custom error handling. Authentication uses Replit OAuth with Passport.js and PostgreSQL for session storage, implementing role-based access control (Manager and Seller).
 
@@ -31,6 +39,7 @@ Built with Node.js and Express in TypeScript, the backend employs a modular rout
     -   **Bytbil Webhook:** Real-time lead delivery from Bytbil via a POST endpoint with optional secret validation and Zod schema validation.
 -   **Round-Robin Assignment:** Distributes leads to sales reps based on facility-specific seller pools, with configurable seller activation/deactivation.
 -   **Lead Lifecycle Management:** Tracks lead status transitions (NY_INTRESSEANMALAN to KUND_KONTAKTAD to VUNNEN/FORLORAD), timestamps key events, and logs all changes.
+-   **Lead Acceptance System:** 12-hour acceptance window with email reminders at 6h and 11h, database flag-based tracking (reminderSentAt6h, reminderSentAt11h, timeoutNotifiedAt), automatic reassignment on decline/timeout, and statistics tracking (leadsAcceptedCount, leadsDeclinedCount, leadsTimedOutCount).
 -   **Password Reset:** Secure token-based password reset via email using the Resend API.
 -   **Public Contact Form:** Unauthenticated endpoint for website visitors to submit inquiries, creating leads with automatic round-robin assignment.
 
@@ -55,6 +64,14 @@ Task management features:
 #### API Routes
 The API includes public endpoints for contact forms and Bytbil webhooks, authentication routes for login/logout and password management, and protected routes for managing leads, notes, tasks, user profiles, and seller pools. Dashboard endpoints provide KPI statistics with filtering capabilities.
 
+**Lead Acceptance Endpoints:**
+- POST `/api/leads/:id/accept` - Accept a lead (validates assignedToId === userId)
+- POST `/api/leads/:id/decline` - Decline a lead (validates assignedToId === userId)
+- GET `/api/leads/:id/email-accept` - Accept via email link (redirects after action)
+- GET `/api/leads/:id/email-decline` - Decline via email link (redirects after action)
+
+All acceptance endpoints enforce that only the assigned seller can accept/decline their leads.
+
 #### Authentication and Authorization
 Replit OAuth (OIDC) is the primary authentication method, syncing user profiles and using session-based authentication with PostgreSQL persistence. Authorization is role-based (MANAGER, SALJARE), enforced by middleware on API routes and reflected in the frontend UI. Security measures include secure cookies, environment variable secrets, input validation with Zod, and Argon2 for password hashing.
 
@@ -65,7 +82,7 @@ Replit OAuth (OIDC) is the primary authentication method, syncing user profiles 
 -   **Replit Authentication:** OAuth provider for user authentication.
 -   **Email Services:**
     -   **IMAP:** Standard IMAP for receiving lead emails from various sources.
-    -   **Resend:** Transactional email service for sending password reset emails, configured via `RESEND_API_KEY`.
+    -   **Resend:** Transactional email service for password reset, lead assignments, and acceptance reminders. All lead-related emails include Accept/Decline action buttons linking to `/api/leads/:id/email-accept` and `/api/leads/:id/email-decline` endpoints. Configured via `RESEND_API_KEY`.
 
 #### Third-Party APIs
 -   **Bytbil.se:**
