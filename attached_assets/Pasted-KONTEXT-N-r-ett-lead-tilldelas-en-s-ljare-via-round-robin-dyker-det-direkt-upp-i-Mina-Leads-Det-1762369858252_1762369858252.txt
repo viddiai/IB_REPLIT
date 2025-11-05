@@ -1,0 +1,75 @@
+KONTEXT:
+När ett lead tilldelas en säljare via round-robin, dyker det direkt upp i "Mina Leads".
+Det finns ingen bekräftelse om säljaren faktiskt kommer att hantera leadet.
+
+UPPGIFT:
+Implementera ett accepteringssystem där säljaren måste bekräfta att de tar leadet inom 12 timmar.
+
+FUNKTIONALITET:
+
+1. NY STATUS: "Väntar på accept"
+   - Leads som just tilldelats får status "Väntar på accept"
+   - Visa med gul varningsbadge
+
+2. ACCEPT-KNAPP PÅ LEADET:
+   När säljare öppnar ett lead med status "Väntar på accept":
+   - Visa en prominent banner längst upp:
+     "Detta lead väntar på din bekräftelse. Kan du ta detta lead?"
+   - Två knappar:
+     * [Ja, jag tar leadet] (grön)
+     * [Nej, tilldela till annan] (röd)
+   
+3. VID "JA":
+   - Ändra status till "Ny intresseanmälan" (eller behåll)
+   - Ta bort accept-bannern
+   - Leadet förblir tilldelat till säljaren
+   - Logga accepttidpunkt
+
+4. VID "NEJ":
+   - Ta bort leadet från säljarens lista
+   - Tilldela leadet till NÄSTA person i round-robin för den anläggningen
+   - Skicka e-postnotifikation till den nya personen
+   - Den nya personen får samma 12-timmars accept-frist
+   - Logga varför leadet omdirigerats ("Declined by [säljare]")
+
+5. TIMEOUT-LOGIK (12 timmar):
+   - Om säljaren inte accepterar eller nekar inom 12 timmar:
+     * Skicka automatisk e-post till MANAGER för den anläggningen
+     * E-post subject: "⚠️ Lead ej bekräftat: [Fordonstitel]"
+     * E-post body:
+   [Säljarens namn] har inte bekräftat följande lead inom 12 timmar:
+   
+   Fordon: [Fordonstitel]
+   Tilldelat: [Tidsstämpel]
+   
+   Vänligen följ upp med säljaren eller omfördela leadet manuellt.
+   
+   [Visa lead]
+   - Leadet förblir hos säljaren men markeras som "⚠️ Ej bekräftat"
+   - Manager kan manuellt omfördela om behövs
+
+6. I "MINA LEADS"-VYNDATA:
+   - Visa en countdown-timer för leads som väntar på accept
+   - Exempel: "Bekräfta inom: 11h 23min"
+   - Sortera "Väntar på accept"-leads överst
+
+7. NOTIFIKATIONER:
+   - Efter 6 timmar: skicka påminnelse-e-post till säljaren
+   - Efter 11 timmar: skicka sista påminnelsen
+   - Efter 12 timmar: skicka till manager
+
+TEKNISK SPECIFIKATION:
+- Lägg till fält i lead-objektet:
+  * assigned_at (timestamp)
+  * accept_status ('pending', 'accepted', 'declined')
+  * accepted_at (timestamp, nullable)
+  * decline_reason (optional, för framtida use)
+
+- Skapa en bakgrundsjobb (cron job) som körs var 30:e minut:
+  * Hitta alla leads med accept_status='pending'
+  * Kontrollera om 12 timmar har passerat
+  * Skicka e-post till manager om timeout
+
+- Logga alla accept/decline-händelser för statistik
+
+- Managers ska kunna se accept-rates per säljare i Dashboard
