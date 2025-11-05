@@ -16,7 +16,10 @@ import { useAuth } from "@/hooks/useAuth";
 import type { Lead, LeadNote, LeadTask, AuditLog, User } from "@shared/schema";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import StatusBadge from "@/components/StatusBadge";
+
+const SWEDISH_TZ = "Europe/Stockholm";
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +29,7 @@ export default function LeadDetail() {
   const [noteContent, setNoteContent] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskDueTime, setTaskDueTime] = useState("09:00");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [newStatus, setNewStatus] = useState("");
   
@@ -134,6 +138,7 @@ export default function LeadDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}/tasks`] });
       setTaskDescription("");
       setTaskDueDate("");
+      setTaskDueTime("09:00");
       toast({
         title: "Uppgift skapad",
         description: "Uppgiften har lagts till",
@@ -223,9 +228,15 @@ export default function LeadDetail() {
 
   const handleCreateTask = () => {
     if (!taskDescription.trim()) return;
+    let dueDateTimeString: string | undefined = undefined;
+    if (taskDueDate) {
+      const localDateTimeString = `${taskDueDate}T${taskDueTime || "09:00"}:00`;
+      const utcDate = fromZonedTime(localDateTimeString, SWEDISH_TZ);
+      dueDateTimeString = utcDate.toISOString();
+    }
     createTaskMutation.mutate({
       description: taskDescription,
-      dueDate: taskDueDate || undefined,
+      dueDate: dueDateTimeString,
     });
   };
 
@@ -323,6 +334,13 @@ export default function LeadDetail() {
                   )}
                 </Button>
               </div>
+            </div>
+            <Separator />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Registreringstid</p>
+              <p className="text-base" data-testid="text-registration-time">
+                {formatInTimeZone(new Date(lead.createdAt), SWEDISH_TZ, "yyyy-MM-dd HH:mm")}
+              </p>
             </div>
             <Separator />
             <div>
@@ -589,7 +607,7 @@ export default function LeadDetail() {
                   <div key={note.id} className="space-y-1 p-3 bg-muted rounded-md" data-testid={`note-${note.id}`}>
                     <p className="text-sm" data-testid={`text-note-content-${note.id}`}>{note.content}</p>
                     <p className="text-xs text-muted-foreground" data-testid={`text-note-date-${note.id}`}>
-                      {format(new Date(note.createdAt), "PPp", { locale: sv })}
+                      {formatInTimeZone(new Date(note.createdAt), SWEDISH_TZ, "PPp", { locale: sv })}
                     </p>
                   </div>
                 ))
@@ -610,12 +628,22 @@ export default function LeadDetail() {
                 onChange={(e) => setTaskDescription(e.target.value)}
                 data-testid="input-task-description"
               />
-              <Input
-                type="date"
-                value={taskDueDate}
-                onChange={(e) => setTaskDueDate(e.target.value)}
-                data-testid="input-task-date"
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="flex-1"
+                  data-testid="input-task-date"
+                />
+                <Input
+                  type="time"
+                  value={taskDueTime}
+                  onChange={(e) => setTaskDueTime(e.target.value)}
+                  className="w-32"
+                  data-testid="input-task-time"
+                />
+              </div>
               <Button
                 onClick={handleCreateTask}
                 disabled={!taskDescription.trim() || createTaskMutation.isPending}
@@ -655,12 +683,17 @@ export default function LeadDetail() {
                       )}
                     </button>
                     <div className="flex-1">
-                      <p className={`text-sm ${task.isCompleted ? "line-through text-muted-foreground" : ""}`} data-testid={`text-task-description-${task.id}`}>
-                        {task.description}
-                      </p>
-                      {task.dueDate && (
-                        <p className="text-xs text-muted-foreground" data-testid={`text-task-date-${task.id}`}>
-                          Förfaller: {format(new Date(task.dueDate), "PP", { locale: sv })}
+                      {task.dueDate ? (
+                        <p className={`text-sm ${task.isCompleted ? "line-through text-muted-foreground" : ""}`} data-testid={`text-task-description-${task.id}`}>
+                          <span className="text-xs text-muted-foreground">
+                            {formatInTimeZone(new Date(task.dueDate), SWEDISH_TZ, "yyyy-MM-dd HH:mm")}
+                          </span>
+                          {" - "}
+                          {task.description}
+                        </p>
+                      ) : (
+                        <p className={`text-sm ${task.isCompleted ? "line-through text-muted-foreground" : ""}`} data-testid={`text-task-description-${task.id}`}>
+                          {task.description}
                         </p>
                       )}
                     </div>
@@ -691,7 +724,7 @@ export default function LeadDetail() {
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground" data-testid={`text-activity-date-${log.id}`}>
-                      {format(new Date(log.createdAt), "PPp", { locale: sv })}
+                      {formatInTimeZone(new Date(log.createdAt), SWEDISH_TZ, "PPp", { locale: sv })}
                     </p>
                   </div>
                 </div>

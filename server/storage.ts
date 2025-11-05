@@ -16,7 +16,7 @@ import type {
   SellerPool,
   InsertSellerPool,
 } from "@shared/schema";
-import { eq, and, desc, sql, lt } from "drizzle-orm";
+import { eq, and, desc, asc, sql, lt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -272,7 +272,10 @@ export class DbStorage implements IStorage {
       .select()
       .from(leadTasks)
       .where(eq(leadTasks.leadId, leadId))
-      .orderBy(leadTasks.dueDate);
+      .orderBy(
+        sql`CASE WHEN ${leadTasks.dueDate} IS NULL THEN 1 ELSE 0 END`,
+        asc(leadTasks.dueDate)
+      );
   }
 
   async createLeadTask(task: InsertLeadTask): Promise<LeadTask> {
