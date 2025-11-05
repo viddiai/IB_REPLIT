@@ -734,6 +734,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/leads/:id/vehicle-info', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      if (user.role !== "MANAGER" && lead.assignedToId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const vehicleInfoSchema = z.object({
+        registrationNumber: z
+          .string()
+          .optional()
+          .transform((val) => val || undefined)
+          .refine(
+            (val) => !val || /^[A-Z]{3}\d{2}[A-Z0-9]$/i.test(val),
+            { message: "Regnummer måste vara i formatet ABC123 eller ABC12D" }
+          ),
+        anlaggning: z.enum(["Falkenberg", "Göteborg", "Trollhättan"]).optional(),
+        verendusId: z.string().optional().transform((val) => val || undefined),
+      });
+
+      const validatedData = vehicleInfoSchema.parse(req.body);
+      
+      const updatedLead = await storage.updateLead(req.params.id, validatedData);
+
+      if (!updatedLead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      res.json(updatedLead);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating vehicle info:", error);
+      res.status(500).json({ message: "Failed to update vehicle info" });
+    }
+  });
+
   app.get('/api/leads/:id/notes', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
