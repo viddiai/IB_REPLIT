@@ -54,6 +54,7 @@ export default function LeadsList() {
       const matchesTab = activeTab === "all" || 
         (activeTab === "new" && lead.status === "NY_INTRESSEANMALAN") ||
         (activeTab === "contacted" && lead.status === "KUND_KONTAKTAD") ||
+        (activeTab === "quote" && lead.status === "OFFERT_SKICKAD") ||
         (activeTab === "won" && lead.status === "VUNNEN") ||
         (activeTab === "lost" && lead.status === "FORLORAD");
 
@@ -74,12 +75,13 @@ export default function LeadsList() {
   }, [leads, activeTab, search, sourceFilter, locationFilter, sellerFilter]);
 
   const counts = useMemo(() => {
-    if (!leads) return { all: 0, new: 0, contacted: 0, won: 0, lost: 0 };
+    if (!leads) return { all: 0, new: 0, contacted: 0, quote: 0, won: 0, lost: 0 };
 
     return {
       all: leads.length,
       new: leads.filter(l => l.status === "NY_INTRESSEANMALAN").length,
       contacted: leads.filter(l => l.status === "KUND_KONTAKTAD").length,
+      quote: leads.filter(l => l.status === "OFFERT_SKICKAD").length,
       won: leads.filter(l => l.status === "VUNNEN").length,
       lost: leads.filter(l => l.status === "FORLORAD").length,
     };

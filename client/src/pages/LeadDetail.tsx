@@ -176,6 +176,7 @@ export default function LeadDetail() {
     const variants: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
       NY_INTRESSEANMALAN: { label: "Ny", variant: "default" },
       KUND_KONTAKTAD: { label: "Kontaktad", variant: "secondary" },
+      OFFERT_SKICKAD: { label: "Offert skickad", variant: "secondary" },
       VUNNEN: { label: "Vunnen", variant: "default" },
       FORLORAD: { label: "Förlorad", variant: "outline" },
     };
@@ -238,6 +239,7 @@ export default function LeadDetail() {
                   <SelectContent>
                     <SelectItem value="NY_INTRESSEANMALAN">Ny intresseanmälan</SelectItem>
                     <SelectItem value="KUND_KONTAKTAD">Kund kontaktad</SelectItem>
+                    <SelectItem value="OFFERT_SKICKAD">Offert skickad</SelectItem>
                     <SelectItem value="VUNNEN">Vunnen / Affär</SelectItem>
                     <SelectItem value="FORLORAD">Förlorad / Inte affär</SelectItem>
                   </SelectContent>

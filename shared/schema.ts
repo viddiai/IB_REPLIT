@@ -8,6 +8,7 @@ export const sourceEnum = pgEnum("source", ["BYTBIL", "BLOCKET", "HEMSIDA", "EGE
 export const statusEnum = pgEnum("status", [
   "NY_INTRESSEANMALAN",
   "KUND_KONTAKTAD",
+  "OFFERT_SKICKAD",
   "VUNNEN",
   "FORLORAD"
 ]);

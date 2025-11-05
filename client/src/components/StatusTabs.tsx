@@ -7,6 +7,7 @@ interface StatusTabsProps {
     all?: number;
     new?: number;
     contacted?: number;
+    quote?: number;
     won?: number;
     lost?: number;
   };
@@ -24,6 +25,9 @@ export default function StatusTabs({ activeTab, onTabChange, counts = {} }: Stat
         </TabsTrigger>
         <TabsTrigger value="contacted" data-testid="tab-contacted">
           Kontaktade {counts.contacted !== undefined && `(${counts.contacted})`}
+        </TabsTrigger>
+        <TabsTrigger value="quote" data-testid="tab-quote">
+          Offert skickad {counts.quote !== undefined && `(${counts.quote})`}
         </TabsTrigger>
         <TabsTrigger value="won" data-testid="tab-won">
           Vunna {counts.won !== undefined && `(${counts.won})`}

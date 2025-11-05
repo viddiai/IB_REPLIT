@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 export type LeadStatus = 
   | "NY_INTRESSEANMALAN" 
   | "KUND_KONTAKTAD" 
+  | "OFFERT_SKICKAD"
   | "VUNNEN" 
   | "FORLORAD";
 
@@ -18,6 +19,10 @@ const statusConfig = {
   KUND_KONTAKTAD: {
     label: "Kund kontaktad",
     className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+  },
+  OFFERT_SKICKAD: {
+    label: "Offert skickad",
+    className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
   },
   VUNNEN: {
     label: "Vunnen / Affär",
