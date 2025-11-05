@@ -883,6 +883,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      console.log("Creating task with data:", JSON.stringify({ ...req.body, leadId: req.params.id }));
+
       const validatedData = insertLeadTaskSchema.parse({
         ...req.body,
         leadId: req.params.id,
@@ -892,6 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(task);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
+        console.error("Task validation error:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
       console.error("Error creating lead task:", error);
