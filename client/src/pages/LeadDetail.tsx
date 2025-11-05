@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { formatInTimeZone, toDate } from "date-fns-tz";
 import StatusBadge from "@/components/StatusBadge";
+import AcceptanceBanner from "@/components/AcceptanceBanner";
 
 const SWEDISH_TZ = "Europe/Stockholm";
 
@@ -190,6 +191,48 @@ export default function LeadDetail() {
     },
   });
 
+  const acceptLeadMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/leads/${id}/accept`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Lead accepterat",
+        description: "Du har accepterat detta lead",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte acceptera lead",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const declineLeadMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/leads/${id}/decline`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Lead nekat",
+        description: "Leadet har tilldelats nästa säljare",
+      });
+      setLocation("/leads");
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte neka lead",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditVehicleInfo = () => {
     setEditRegistrationNumber(lead?.registrationNumber || "");
     setEditAnlaggning(lead?.anlaggning || "");
@@ -268,6 +311,10 @@ export default function LeadDetail() {
     );
   }
 
+  const isPendingAcceptance = lead.status === "VANTAR_PA_ACCEPT" && 
+    (lead.acceptStatus === "pending" || !lead.acceptStatus) &&
+    lead.assignedToId === currentUser?.id;
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
@@ -292,6 +339,17 @@ export default function LeadDetail() {
           Skapa nytt lead
         </Button>
       </div>
+
+      {isPendingAcceptance && (
+        <AcceptanceBanner
+          leadId={lead.id}
+          assignedAt={lead.assignedAt}
+          onAccept={() => acceptLeadMutation.mutate()}
+          onDecline={() => declineLeadMutation.mutate()}
+          isAccepting={acceptLeadMutation.isPending}
+          isDeclining={declineLeadMutation.isPending}
+        />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card data-testid="card-contact-info">

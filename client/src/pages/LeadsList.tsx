@@ -82,6 +82,16 @@ export default function LeadsList() {
     });
 
     return filtered.sort((a, b) => {
+      const aIsPending = a.status === "VANTAR_PA_ACCEPT";
+      const bIsPending = b.status === "VANTAR_PA_ACCEPT";
+      
+      if (aIsPending && !bIsPending) return -1;
+      if (!aIsPending && bIsPending) return 1;
+      
+      if (aIsPending && bIsPending && a.assignedAt && b.assignedAt) {
+        return new Date(a.assignedAt).getTime() - new Date(b.assignedAt).getTime();
+      }
+      
       if (a.nextTask && !b.nextTask) return -1;
       if (!a.nextTask && b.nextTask) return 1;
       if (a.nextTask && b.nextTask) {
@@ -169,6 +179,8 @@ export default function LeadsList() {
                 status={lead.status}
                 createdAt={formatInTimeZone(new Date(lead.createdAt), SWEDISH_TZ, "yyyy-MM-dd HH:mm")}
                 assignedTo={lead.assignedToName || (lead.assignedToId ? "Tilldelad" : undefined)}
+                assignedAt={lead.assignedAt}
+                acceptStatus={lead.acceptStatus}
                 vehicleLink={lead.vehicleLink || undefined}
                 nextTask={lead.nextTask}
                 onViewDetails={() => {

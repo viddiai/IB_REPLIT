@@ -769,6 +769,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/leads/:id/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      if (lead.assignedToId !== userId) {
+        return res.status(403).json({ message: "You can only accept leads assigned to you" });
+      }
+
+      if (lead.status !== "VANTAR_PA_ACCEPT") {
+        return res.status(400).json({ message: "This lead is not pending acceptance" });
+      }
+
+      const updatedLead = await storage.acceptLead(req.params.id, userId);
+      
+      res.json(updatedLead);
+    } catch (error: any) {
+      console.error("Error accepting lead:", error);
+      res.status(500).json({ message: "Failed to accept lead" });
+    }
+  });
+
+  app.post('/api/leads/:id/decline', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      if (lead.assignedToId !== userId) {
+        return res.status(403).json({ message: "You can only decline leads assigned to you" });
+      }
+
+      if (lead.status !== "VANTAR_PA_ACCEPT") {
+        return res.status(400).json({ message: "This lead is not pending acceptance" });
+      }
+
+      if (!lead.anlaggning) {
+        return res.status(400).json({ message: "Lead must have a facility assigned" });
+      }
+
+      await storage.declineLead(req.params.id, userId);
+
+      const nextSellerId = await roundRobinService.reassignLead(req.params.id, lead.anlaggning, userId);
+      if (!nextSellerId) {
+        await storage.updateLead(req.params.id, {
+          status: "NY_INTRESSEANMALAN",
+          assignedToId: null,
+          acceptStatus: null,
+          assignedAt: null
+        });
+        return res.json({ message: "Lead declined, but no other sellers available" });
+      }
+
+      res.json({ message: "Lead declined and reassigned to next seller" });
+    } catch (error: any) {
+      console.error("Error declining lead:", error);
+      res.status(500).json({ message: "Failed to decline lead" });
+    }
+  });
+
   app.patch('/api/leads/:id/vehicle-info', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;

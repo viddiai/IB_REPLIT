@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { createImapWorkers } from "./imapWorker";
+import { acceptanceWorker } from "./acceptanceWorker";
 
 const app = express();
 app.use(express.json());
@@ -81,5 +82,8 @@ app.use((req, res, next) => {
     } else {
       log("No IMAP workers configured");
     }
+
+    log("Starting acceptance monitoring worker");
+    acceptanceWorker.start();
   });
 })();

@@ -254,3 +254,207 @@ export async function sendLeadAssignmentEmail(user: User, lead: Lead) {
     throw error;
   }
 }
+
+export async function sendAcceptanceReminderEmail(user: User, lead: Lead, hoursRemaining: number) {
+  const baseUrl = getBaseUrl();
+  const leadUrl = `${baseUrl}/leads/${lead.id}`;
+  
+  const firstName = user.firstName || 'där';
+  const urgency = hoursRemaining <= 1 ? 'SISTA PÅMINNELSEN' : 'Påminnelse';
+  const subject = `${urgency}: Bekräfta lead - ${lead.vehicleTitle}`;
+  
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Leadhantering <noreply@intressefritidscenter.se>',
+      to: [user.email],
+      subject: subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+            <div style="max-width: 600px; margin: 40px auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <div style="background-color: ${hoursRemaining <= 1 ? 'hsl(0, 72%, 51%)' : 'hsl(45, 93%, 47%)'}; padding: 30px; text-align: center;">
+                <h1 style="margin: 0; color: white; font-size: 24px; font-weight: 600;">${urgency}</h1>
+              </div>
+              
+              <div style="padding: 40px 30px;">
+                <p style="margin: 0 0 20px 0; color: #333; font-size: 16px; line-height: 1.5;">
+                  Hej ${firstName},
+                </p>
+                <p style="margin: 0 0 20px 0; color: #333; font-size: 16px; line-height: 1.5;">
+                  Du har ${hoursRemaining} timme${hoursRemaining !== 1 ? 'r' : ''} kvar att bekräfta följande lead:
+                </p>
+                
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h2 style="margin: 0 0 15px 0; color: #333; font-size: 18px; font-weight: 600;">
+                    ${lead.vehicleTitle}
+                  </h2>
+                  <div style="margin: 10px 0;">
+                    <strong style="color: #666; font-size: 14px;">Kund:</strong>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactName}</span>
+                  </div>
+                </div>
+                
+                <div style="background-color: ${hoursRemaining <= 1 ? '#fee' : '#fef3cd'}; border-left: 4px solid ${hoursRemaining <= 1 ? 'hsl(0, 72%, 51%)' : 'hsl(45, 93%, 47%)'}; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                  <p style="margin: 0; color: #333; font-size: 15px;">
+                    ⚠️ ${hoursRemaining <= 1 
+                      ? 'Tiden håller på att ta slut! Om du inte bekräftar inom 1 timme kommer din manager att få en notifikation.' 
+                      : 'Vänligen bekräfta eller neka detta lead så snart som möjligt.'}
+                  </p>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${leadUrl}" style="display: inline-block; background-color: hsl(142, 71%, 45%); color: white; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                    Gå till leadet
+                  </a>
+                </div>
+                
+                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                
+                <p style="margin: 0; color: #999; font-size: 13px; line-height: 1.5;">
+                  Detta är en automatisk påminnelse från Fritidscenter Lead-system.
+                </p>
+              </div>
+              
+              <div style="background-color: #f9f9f9; padding: 20px 30px; text-align: center; border-top: 1px solid #e0e0e0;">
+                <p style="margin: 0; color: #999; font-size: 12px;">
+                  © ${new Date().getFullYear()} Fritidscenter Lead-system. Alla rättigheter förbehållna.
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend API error:', error);
+      throw new Error('Failed to send email');
+    }
+
+    console.log('Acceptance reminder email sent successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error sending acceptance reminder email:', error);
+    throw error;
+  }
+}
+
+export async function sendManagerTimeoutNotification(manager: User, seller: User, lead: Lead) {
+  const baseUrl = getBaseUrl();
+  const leadUrl = `${baseUrl}/leads/${lead.id}`;
+  
+  const managerFirstName = manager.firstName || 'där';
+  const sellerName = seller.firstName && seller.lastName 
+    ? `${seller.firstName} ${seller.lastName}` 
+    : seller.email;
+  const subject = `⚠️ Lead ej bekräftat: ${lead.vehicleTitle}`;
+  
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleString('sv-SE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Leadhantering <noreply@intressefritidscenter.se>',
+      to: [manager.email],
+      subject: subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+            <div style="max-width: 600px; margin: 40px auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <div style="background-color: hsl(0, 72%, 51%); padding: 30px; text-align: center;">
+                <h1 style="margin: 0; color: white; font-size: 24px; font-weight: 600;">⚠️ Lead ej bekräftat</h1>
+              </div>
+              
+              <div style="padding: 40px 30px;">
+                <p style="margin: 0 0 20px 0; color: #333; font-size: 16px; line-height: 1.5;">
+                  Hej ${managerFirstName},
+                </p>
+                <p style="margin: 0 0 20px 0; color: #333; font-size: 16px; line-height: 1.5;">
+                  ${sellerName} har inte bekräftat följande lead inom 12 timmar:
+                </p>
+                
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h2 style="margin: 0 0 15px 0; color: #333; font-size: 18px; font-weight: 600;">
+                    ${lead.vehicleTitle}
+                  </h2>
+                  <div style="margin: 10px 0;">
+                    <strong style="color: #666; font-size: 14px;">Tilldelat:</strong>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.assignedAt ? formatDate(lead.assignedAt) : 'N/A'}</span>
+                  </div>
+                  <div style="margin: 10px 0;">
+                    <strong style="color: #666; font-size: 14px;">Kund:</strong>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactName}</span>
+                  </div>
+                  ${lead.contactEmail ? `
+                  <div style="margin: 10px 0;">
+                    <strong style="color: #666; font-size: 14px;">E-post:</strong>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactEmail}</span>
+                  </div>
+                  ` : ''}
+                  ${lead.contactPhone ? `
+                  <div style="margin: 10px 0;">
+                    <strong style="color: #666; font-size: 14px;">Telefon:</strong>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactPhone}</span>
+                  </div>
+                  ` : ''}
+                </div>
+                
+                <div style="background-color: #fee; border-left: 4px solid hsl(0, 72%, 51%); padding: 15px; margin: 20px 0; border-radius: 4px;">
+                  <p style="margin: 0; color: #333; font-size: 15px;">
+                    <strong>Åtgärd krävs:</strong> Vänligen följ upp med säljaren eller omfördela leadet manuellt.
+                  </p>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${leadUrl}" style="display: inline-block; background-color: hsl(0, 72%, 51%); color: white; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600;">
+                    Visa lead
+                  </a>
+                </div>
+                
+                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                
+                <p style="margin: 0; color: #999; font-size: 13px; line-height: 1.5;">
+                  Detta är en automatisk notifikation från Fritidscenter Lead-system.
+                </p>
+              </div>
+              
+              <div style="background-color: #f9f9f9; padding: 20px 30px; text-align: center; border-top: 1px solid #e0e0e0;">
+                <p style="margin: 0; color: #999; font-size: 12px;">
+                  © ${new Date().getFullYear()} Fritidscenter Lead-system. Alla rättigheter förbehållna.
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend API error:', error);
+      throw new Error('Failed to send email');
+    }
+
+    console.log('Manager timeout notification sent successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error sending manager timeout notification:', error);
+    throw error;
+  }
+}

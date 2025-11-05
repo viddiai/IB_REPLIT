@@ -49,12 +49,78 @@ export class RoundRobinService {
     if (assignedToId) {
       const assignedLead = await storage.assignLead(lead.id, assignedToId);
       
+      await storage.updateLead(lead.id, {
+        status: "VANTAR_PA_ACCEPT",
+        acceptStatus: "pending"
+      });
+      
       await notificationService.notifyLeadAssignment(lead.id, assignedToId);
       
       return assignedLead;
     }
 
     return lead;
+  }
+
+  async reassignLead(leadId: string, anlaggning: string | null, excludeUserId?: string): Promise<string | null> {
+    if (!anlaggning) {
+      return null;
+    }
+
+    const sellerPools = await storage.getSellerPools(anlaggning);
+    let enabledSellers = sellerPools.filter(pool => pool.isEnabled);
+    
+    if (excludeUserId) {
+      enabledSellers = enabledSellers.filter(pool => pool.userId !== excludeUserId);
+    }
+    
+    if (enabledSellers.length === 0) {
+      return null;
+    }
+
+    enabledSellers.sort((a, b) => a.sortOrder - b.sortOrder);
+    
+    const recentLeads = await storage.getLeads({ anlaggning });
+    
+    if (recentLeads.length === 0) {
+      const newAssigneeId = enabledSellers[0].userId;
+      await storage.assignLead(leadId, newAssigneeId);
+      await storage.updateLead(leadId, {
+        status: "VANTAR_PA_ACCEPT",
+        acceptStatus: "pending",
+        reminderSentAt6h: null,
+        reminderSentAt11h: null,
+        timeoutNotifiedAt: null
+      });
+      await notificationService.notifyLeadAssignment(leadId, newAssigneeId);
+      return newAssigneeId;
+    }
+
+    const lastAssignedLead = recentLeads.find(lead => 
+      lead.assignedToId !== null && lead.assignedToId !== excludeUserId
+    );
+    
+    let nextIndex = 0;
+    if (lastAssignedLead && lastAssignedLead.assignedToId) {
+      const lastSellerIndex = enabledSellers.findIndex(
+        pool => pool.userId === lastAssignedLead.assignedToId
+      );
+      if (lastSellerIndex !== -1) {
+        nextIndex = (lastSellerIndex + 1) % enabledSellers.length;
+      }
+    }
+
+    const newAssigneeId = enabledSellers[nextIndex].userId;
+    await storage.assignLead(leadId, newAssigneeId);
+    await storage.updateLead(leadId, {
+      status: "VANTAR_PA_ACCEPT",
+      acceptStatus: "pending",
+      reminderSentAt6h: null,
+      reminderSentAt11h: null,
+      timeoutNotifiedAt: null
+    });
+    await notificationService.notifyLeadAssignment(leadId, newAssigneeId);
+    return newAssigneeId;
   }
 }
 

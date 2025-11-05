@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 
 export type LeadStatus = 
+  | "VANTAR_PA_ACCEPT"
   | "NY_INTRESSEANMALAN" 
   | "KUND_KONTAKTAD" 
   | "OFFERT_SKICKAD"
@@ -12,6 +13,10 @@ interface StatusBadgeProps {
 }
 
 const statusConfig = {
+  VANTAR_PA_ACCEPT: {
+    label: "Väntar på accept",
+    className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+  },
   NY_INTRESSEANMALAN: {
     label: "Ny intresseanmälan",
     className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"

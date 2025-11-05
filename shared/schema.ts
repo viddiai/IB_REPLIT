@@ -6,12 +6,14 @@ import { z } from "zod";
 export const roleEnum = pgEnum("role", ["MANAGER", "SALJARE"]);
 export const sourceEnum = pgEnum("source", ["BYTBIL", "BLOCKET", "HEMSIDA", "EGET"]);
 export const statusEnum = pgEnum("status", [
+  "VANTAR_PA_ACCEPT",
   "NY_INTRESSEANMALAN",
   "KUND_KONTAKTAD",
   "OFFERT_SKICKAD",
   "VUNNEN",
   "FORLORAD"
 ]);
+export const acceptStatusEnum = pgEnum("accept_status", ["pending", "accepted", "declined"]);
 export const anlaggningEnum = pgEnum("anlaggning", ["Falkenberg", "Göteborg", "Trollhättan"]);
 
 // Session storage table for Replit Auth
@@ -37,6 +39,9 @@ export const users = pgTable("users", {
   anlaggning: anlaggningEnum("anlaggning"),
   isActive: boolean("is_active").notNull().default(true),
   emailOnLeadAssignment: boolean("email_on_lead_assignment").notNull().default(true),
+  leadsAcceptedCount: integer("leads_accepted_count").notNull().default(0),
+  leadsDeclinedCount: integer("leads_declined_count").notNull().default(0),
+  leadsTimedOutCount: integer("leads_timed_out_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -60,8 +65,16 @@ export const leads = pgTable("leads", {
   inquiryDateTime: text("inquiry_date_time"),
   rawPayload: jsonb("raw_payload"),
   
-  status: statusEnum("status").notNull().default("NY_INTRESSEANMALAN"),
+  status: statusEnum("status").notNull().default("VANTAR_PA_ACCEPT"),
   assignedToId: varchar("assigned_to_id", { length: 255 }).references(() => users.id),
+  
+  acceptStatus: acceptStatusEnum("accept_status"),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  declineReason: text("decline_reason"),
+  reminderSentAt6h: timestamp("reminder_sent_at_6h"),
+  reminderSentAt11h: timestamp("reminder_sent_at_11h"),
+  timeoutNotifiedAt: timestamp("timeout_notified_at"),
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   assignedAt: timestamp("assigned_at"),
@@ -187,6 +200,8 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   firstContactAt: true,
   closedAt: true,
   deletedAt: true,
+  acceptedAt: true,
+  declinedAt: true,
 });
 
 export const publicContactSchema = z.object({

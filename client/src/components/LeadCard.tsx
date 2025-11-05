@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import StatusBadge, { type LeadStatus } from "./StatusBadge";
 import { MapPin, Calendar, ExternalLink, User, Car, Clock, AlertCircle } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
-import { isToday, isPast, differenceInDays } from "date-fns";
+import { isToday, isPast, differenceInDays, formatDistanceToNow } from "date-fns";
+import { sv } from "date-fns/locale";
 
 const SWEDISH_TZ = "Europe/Stockholm";
 
@@ -18,6 +19,8 @@ interface LeadCardProps {
   status: LeadStatus;
   createdAt: string;
   assignedTo?: string;
+  assignedAt?: Date | null;
+  acceptStatus?: "pending" | "accepted" | "declined" | null;
   vehicleLink?: string;
   nextStep?: string;
   nextTask?: {
@@ -40,12 +43,41 @@ export default function LeadCard({
   status,
   createdAt,
   assignedTo,
+  assignedAt,
+  acceptStatus,
   vehicleLink,
   nextStep,
   nextTask,
   onViewDetails,
   onAssign
 }: LeadCardProps) {
+  const isPendingAcceptance = status === "VANTAR_PA_ACCEPT" && (acceptStatus === "pending" || !acceptStatus);
+
+  const getAcceptanceCountdown = () => {
+    if (!isPendingAcceptance || !assignedAt) return null;
+
+    const now = new Date();
+    const assigned = new Date(assignedAt);
+    const twelveHoursLater = new Date(assigned.getTime() + 12 * 60 * 60 * 1000);
+    const hoursRemaining = (twelveHoursLater.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursRemaining <= 0) {
+      return { text: "Tiden har gått ut", isUrgent: true };
+    }
+
+    const hours = Math.floor(hoursRemaining);
+    const minutes = Math.floor((hoursRemaining - hours) * 60);
+    const isUrgent = hoursRemaining <= 2;
+
+    return {
+      text: `${hours}h ${minutes}min`,
+      isUrgent,
+      fullText: `Bekräfta inom: ${hours}h ${minutes}min`
+    };
+  };
+
+  const countdown = getAcceptanceCountdown();
+
   const getSourceIcon = () => {
     if (source === "BYTBIL") return <Car className="w-4 h-4" />;
     if (source === "BLOCKET") return <Car className="w-4 h-4" />;
@@ -81,6 +113,19 @@ export default function LeadCard({
       <div className="space-y-4">
         <div className="flex items-center justify-start gap-2 mb-2">
           <StatusBadge status={status} />
+          {countdown && (
+            <div 
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 ${
+                countdown.isUrgent 
+                  ? 'bg-destructive/10 text-destructive' 
+                  : 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400'
+              }`}
+              data-testid={`acceptance-countdown-${id}`}
+            >
+              <Clock className="w-3 h-3" />
+              {countdown.fullText || countdown.text}
+            </div>
+          )}
         </div>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">

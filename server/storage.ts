@@ -46,6 +46,10 @@ export interface IStorage {
   updateLeadStatus(id: string, status: string, userId: string): Promise<Lead>;
   assignLead(id: string, assignedToId: string): Promise<Lead>;
   deleteLead(id: string): Promise<void>;
+  acceptLead(id: string, userId: string): Promise<Lead>;
+  declineLead(id: string, userId: string, reason?: string): Promise<Lead>;
+  getLeadsPendingAcceptance(assignedToId?: string): Promise<LeadWithAssignedTo[]>;
+  getManagerForFacility(anlaggning: string): Promise<User | undefined>;
   
   getLeadNotes(leadId: string): Promise<LeadNote[]>;
   createLeadNote(note: InsertLeadNote): Promise<LeadNote>;
@@ -140,6 +144,13 @@ export class DbStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async incrementUserTimedOutCount(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ leadsTimedOutCount: sql`${users.leadsTimedOutCount} + 1` })
+      .where(eq(users.id, userId));
   }
 
   async getLeads(filters?: {
@@ -302,6 +313,121 @@ export class DbStorage implements IStorage {
       .update(leads)
       .set({ isDeleted: true, deletedAt: new Date() })
       .where(eq(leads.id, id));
+  }
+
+  async acceptLead(id: string, userId: string): Promise<Lead> {
+    const [lead] = await db
+      .update(leads)
+      .set({
+        acceptStatus: "accepted",
+        acceptedAt: new Date(),
+        status: "NY_INTRESSEANMALAN",
+        reminderSentAt6h: null,
+        reminderSentAt11h: null,
+        timeoutNotifiedAt: null
+      })
+      .where(eq(leads.id, id))
+      .returning();
+
+    if (!lead) {
+      throw new Error("Lead not found");
+    }
+
+    await db
+      .update(users)
+      .set({ leadsAcceptedCount: sql`${users.leadsAcceptedCount} + 1` })
+      .where(eq(users.id, userId));
+
+    await this.createAuditLog({
+      leadId: id,
+      userId,
+      action: "Lead accepted",
+      fromValue: "pending",
+      toValue: "accepted"
+    });
+
+    return lead;
+  }
+
+  async declineLead(id: string, userId: string, reason?: string): Promise<Lead> {
+    const [lead] = await db
+      .update(leads)
+      .set({
+        acceptStatus: "declined",
+        declinedAt: new Date(),
+        declineReason: reason || `Declined by user ${userId}`,
+        reminderSentAt6h: null,
+        reminderSentAt11h: null,
+        timeoutNotifiedAt: null
+      })
+      .where(eq(leads.id, id))
+      .returning();
+
+    if (!lead) {
+      throw new Error("Lead not found");
+    }
+
+    await db
+      .update(users)
+      .set({ leadsDeclinedCount: sql`${users.leadsDeclinedCount} + 1` })
+      .where(eq(users.id, userId));
+
+    await this.createAuditLog({
+      leadId: id,
+      userId,
+      action: "Lead declined",
+      fromValue: "pending",
+      toValue: "declined"
+    });
+
+    return lead;
+  }
+
+  async getLeadsPendingAcceptance(assignedToId?: string): Promise<LeadWithAssignedTo[]> {
+    const conditions = [
+      eq(leads.isDeleted, false),
+      eq(leads.status, "VANTAR_PA_ACCEPT" as any),
+      sql`${leads.acceptStatus} = 'pending' OR ${leads.acceptStatus} IS NULL`
+    ];
+
+    if (assignedToId) {
+      conditions.push(eq(leads.assignedToId, assignedToId));
+    }
+
+    const result = await db
+      .select({
+        lead: leads,
+        assignedToFirstName: users.firstName,
+        assignedToLastName: users.lastName,
+      })
+      .from(leads)
+      .leftJoin(users, eq(leads.assignedToId, users.id))
+      .where(and(...conditions))
+      .orderBy(asc(leads.assignedAt));
+
+    return result.map(row => ({
+      ...row.lead,
+      assignedToName: row.assignedToFirstName && row.assignedToLastName
+        ? `${row.assignedToFirstName} ${row.assignedToLastName}`
+        : null,
+      nextTask: null
+    }));
+  }
+
+  async getManagerForFacility(anlaggning: string): Promise<User | undefined> {
+    const [manager] = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.anlaggning, anlaggning as any),
+          eq(users.role, "MANAGER"),
+          eq(users.isActive, true)
+        )
+      )
+      .limit(1);
+
+    return manager;
   }
 
   async getLeadNotes(leadId: string): Promise<LeadNote[]> {
