@@ -232,7 +232,7 @@ export default function LeadCard({
                 Acceptera
               </Button>
               <Button 
-                variant="outline" 
+                variant="destructive" 
                 size="sm" 
                 onClick={onDecline}
                 data-testid={`button-decline-lead-${id}`}
