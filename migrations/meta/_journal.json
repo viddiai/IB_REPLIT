@@ -8,6 +8,13 @@
       "when": 1762332409288,
       "tag": "0000_skinny_zzzax",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1762414890915,
+      "tag": "0001_hot_firebrand",
+      "breakpoints": true
     }
   ]
 }

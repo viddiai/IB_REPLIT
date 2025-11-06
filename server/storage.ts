@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools, passwordResetTokens, statusChangeHistory, emailNotificationLogs } from "@shared/schema";
+import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools, passwordResetTokens, statusChangeHistory, emailNotificationLogs, messages } from "@shared/schema";
 import type {
   User,
   InsertUser,
@@ -20,6 +20,9 @@ import type {
   InsertStatusChangeHistory,
   EmailNotificationLog,
   InsertEmailNotificationLog,
+  Message,
+  MessageWithUsers,
+  InsertMessage,
 } from "@shared/schema";
 import { eq, and, desc, asc, sql, lt, inArray, gte } from "drizzle-orm";
 import { formatInTimeZone, toDate } from "date-fns-tz";
@@ -97,6 +100,19 @@ export interface IStorage {
   deleteExpiredPasswordResetTokens(): Promise<void>;
   
   logEmailNotification(log: InsertEmailNotificationLog): Promise<EmailNotificationLog>;
+  
+  createMessage(message: InsertMessage): Promise<Message>;
+  getConversations(userId: string): Promise<Array<{
+    otherUserId: string;
+    otherUserName: string;
+    otherUserProfileImageUrl: string | null;
+    lastMessage: string;
+    lastMessageTime: Date;
+    unreadCount: number;
+  }>>;
+  getMessages(userId: string, otherUserId: string): Promise<MessageWithUsers[]>;
+  markMessagesAsRead(userId: string, otherUserId: string): Promise<void>;
+  getUnreadMessageCount(userId: string): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -728,6 +744,161 @@ export class DbStorage implements IStorage {
       .values(log)
       .returning();
     return notificationLog;
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
+    return newMessage;
+  }
+
+  async getConversations(userId: string): Promise<Array<{
+    otherUserId: string;
+    otherUserName: string;
+    otherUserProfileImageUrl: string | null;
+    lastMessage: string;
+    lastMessageTime: Date;
+    unreadCount: number;
+  }>> {
+    const allMessages = await db
+      .select({
+        id: messages.id,
+        senderId: messages.senderId,
+        receiverId: messages.receiverId,
+        content: messages.content,
+        isRead: messages.isRead,
+        createdAt: messages.createdAt,
+        senderFirstName: users.firstName,
+        senderLastName: users.lastName,
+        senderProfileImageUrl: users.profileImageUrl,
+      })
+      .from(messages)
+      .leftJoin(users, eq(messages.senderId, users.id))
+      .where(
+        sql`${messages.senderId} = ${userId} OR ${messages.receiverId} = ${userId}`
+      )
+      .orderBy(desc(messages.createdAt));
+
+    const conversationsMap = new Map<string, {
+      otherUserId: string;
+      otherUserName: string;
+      otherUserProfileImageUrl: string | null;
+      lastMessage: string;
+      lastMessageTime: Date;
+      unreadCount: number;
+    }>();
+
+    for (const msg of allMessages) {
+      const otherUserId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+      
+      if (!conversationsMap.has(otherUserId)) {
+        const otherUser = await this.getUser(otherUserId);
+        const otherUserName = otherUser 
+          ? `${otherUser.firstName || ''} ${otherUser.lastName || ''}`.trim() || otherUser.email
+          : 'Unknown User';
+        
+        conversationsMap.set(otherUserId, {
+          otherUserId,
+          otherUserName,
+          otherUserProfileImageUrl: otherUser?.profileImageUrl || null,
+          lastMessage: msg.content,
+          lastMessageTime: msg.createdAt,
+          unreadCount: 0,
+        });
+      }
+
+      if (msg.senderId !== userId && !msg.isRead) {
+        const conversation = conversationsMap.get(otherUserId)!;
+        conversation.unreadCount++;
+      }
+    }
+
+    return Array.from(conversationsMap.values());
+  }
+
+  async getMessages(userId: string, otherUserId: string): Promise<MessageWithUsers[]> {
+    const messageList = await db
+      .select({
+        id: messages.id,
+        senderId: messages.senderId,
+        receiverId: messages.receiverId,
+        content: messages.content,
+        leadId: messages.leadId,
+        isRead: messages.isRead,
+        createdAt: messages.createdAt,
+        senderFirstName: users.firstName,
+        senderLastName: users.lastName,
+        senderProfileImageUrl: users.profileImageUrl,
+      })
+      .from(messages)
+      .leftJoin(users, eq(messages.senderId, users.id))
+      .where(
+        sql`(${messages.senderId} = ${userId} AND ${messages.receiverId} = ${otherUserId}) 
+            OR (${messages.senderId} = ${otherUserId} AND ${messages.receiverId} = ${userId})`
+      )
+      .orderBy(asc(messages.createdAt));
+
+    const messagesWithUsers: MessageWithUsers[] = [];
+
+    for (const msg of messageList) {
+      const receiverUser = await this.getUser(msg.receiverId);
+      const senderName = `${msg.senderFirstName || ''} ${msg.senderLastName || ''}`.trim() || 'Unknown';
+      const receiverName = receiverUser 
+        ? `${receiverUser.firstName || ''} ${receiverUser.lastName || ''}`.trim() || receiverUser.email
+        : 'Unknown';
+
+      let leadTitle = null;
+      if (msg.leadId) {
+        const lead = await this.getLead(msg.leadId);
+        leadTitle = lead?.vehicleTitle || null;
+      }
+
+      messagesWithUsers.push({
+        id: msg.id,
+        senderId: msg.senderId,
+        receiverId: msg.receiverId,
+        content: msg.content,
+        leadId: msg.leadId,
+        isRead: msg.isRead,
+        createdAt: msg.createdAt,
+        senderName,
+        senderProfileImageUrl: msg.senderProfileImageUrl,
+        receiverName,
+        receiverProfileImageUrl: receiverUser?.profileImageUrl || null,
+        leadTitle,
+      });
+    }
+
+    return messagesWithUsers;
+  }
+
+  async markMessagesAsRead(userId: string, otherUserId: string): Promise<void> {
+    await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(messages.receiverId, userId),
+          eq(messages.senderId, otherUserId),
+          eq(messages.isRead, false)
+        )
+      );
+  }
+
+  async getUnreadMessageCount(userId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.receiverId, userId),
+          eq(messages.isRead, false)
+        )
+      );
+
+    return result[0]?.count || 0;
   }
 
   async getOverviewStats(userId?: string, userRole?: string) {

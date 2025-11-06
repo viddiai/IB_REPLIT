@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, sanitizeUser } from "./localAuth";
-import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, updateNotificationPreferencesSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, publicContactSchema, bytbilWebhookSchema } from "@shared/schema";
+import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, updateNotificationPreferencesSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, publicContactSchema, bytbilWebhookSchema, insertMessageSchema } from "@shared/schema";
 import { z } from "zod";
 import { roundRobinService } from "./roundRobin";
 import { notificationService } from "./notificationService";
@@ -1340,6 +1340,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching activity logs:", error);
       res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
+  // Messages routes
+  app.get('/api/messages/conversations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const conversations = await storage.getConversations(userId);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ message: "Misslyckades att hämta konversationer" });
+    }
+  });
+
+  app.get('/api/messages/unread-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const count = await storage.getUnreadMessageCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Misslyckades att hämta antal olästa meddelanden" });
+    }
+  });
+
+  app.get('/api/messages/:otherUserId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const otherUserId = req.params.otherUserId;
+      
+      const messages = await storage.getMessages(userId, otherUserId);
+      
+      // Mark messages as read
+      await storage.markMessagesAsRead(userId, otherUserId);
+      
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Misslyckades att hämta meddelanden" });
+    }
+  });
+
+  app.post('/api/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const validatedData = insertMessageSchema.parse({
+        ...req.body,
+        senderId: userId,
+      });
+
+      const message = await storage.createMessage(validatedData);
+      res.status(201).json(message);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valideringsfel", errors: error.errors });
+      }
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Misslyckades att skicka meddelande" });
     }
   });
 

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Mail, Phone, ExternalLink, Loader2, Plus, CheckCircle2, Circle, UserCog, Edit2, X, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Mail, Phone, ExternalLink, Loader2, Plus, CheckCircle2, Circle, UserCog, Edit2, X, Check, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -51,6 +52,10 @@ export default function LeadDetail() {
   const [editRegistrationNumber, setEditRegistrationNumber] = useState("");
   const [editAnlaggning, setEditAnlaggning] = useState("");
   const [editVerendusId, setEditVerendusId] = useState("");
+  
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageContent, setMessageContent] = useState("");
+  const [messageRecipientId, setMessageRecipientId] = useState("");
 
   const { data: lead, isLoading: leadLoading } = useQuery<Lead>({
     queryKey: [`/api/leads/${id}`],
@@ -245,6 +250,46 @@ export default function LeadDetail() {
       });
     },
   });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async (data: { receiverId: string; content: string; leadId: string }) => {
+      return await apiRequest("POST", "/api/messages", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
+      toast({
+        title: "Meddelande skickat",
+        description: "Meddelandet har skickats",
+      });
+      setMessageDialogOpen(false);
+      setMessageContent("");
+      setMessageRecipientId("");
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte skicka meddelande",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!messageContent.trim() || !messageRecipientId || !id) return;
+    sendMessageMutation.mutate({
+      receiverId: messageRecipientId,
+      content: messageContent,
+      leadId: id,
+    });
+  };
+
+  const handleOpenMessageDialog = (userId: string) => {
+    setMessageRecipientId(userId);
+    const defaultMessage = `Angående lead: ${lead?.vehicleTitle || ""}`;
+    setMessageContent(defaultMessage);
+    setMessageDialogOpen(true);
+  };
 
   const handleEditVehicleInfo = () => {
     setEditRegistrationNumber(lead?.registrationNumber || "");
@@ -624,14 +669,26 @@ export default function LeadDetail() {
               </div>
             </div>
             {lead.assignedToId && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm text-muted-foreground">
-                  Nuvarande tilldelning: <span className="font-medium text-foreground" data-testid="text-current-assignee">
-                    {users.find((u) => u.id === lead.assignedToId)
-                      ? `${users.find((u) => u.id === lead.assignedToId)?.firstName} ${users.find((u) => u.id === lead.assignedToId)?.lastName}`
-                      : "Okänd"}
-                  </span>
-                </p>
+              <div className="space-y-2">
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    Nuvarande tilldelning: <span className="font-medium text-foreground" data-testid="text-current-assignee">
+                      {users.find((u) => u.id === lead.assignedToId)
+                        ? `${users.find((u) => u.id === lead.assignedToId)?.firstName} ${users.find((u) => u.id === lead.assignedToId)?.lastName}`
+                        : "Okänd"}
+                    </span>
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenMessageDialog(lead.assignedToId!)}
+                  className="w-full"
+                  data-testid="button-send-message"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Skicka meddelande till tilldelad säljare
+                </Button>
               </div>
             )}
           </CardContent>
@@ -806,6 +863,58 @@ export default function LeadDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Message Dialog */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent data-testid="dialog-send-message">
+          <DialogHeader>
+            <DialogTitle>Skicka meddelande</DialogTitle>
+            <DialogDescription>
+              Skicka ett meddelande om detta lead till den tilldelade säljaren.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Mottagare:</p>
+              <p className="text-sm text-muted-foreground">
+                {users.find((u) => u.id === messageRecipientId)
+                  ? `${users.find((u) => u.id === messageRecipientId)?.firstName} ${users.find((u) => u.id === messageRecipientId)?.lastName}`
+                  : "Välj mottagare"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Meddelande:</p>
+              <Textarea
+                placeholder="Skriv ditt meddelande här..."
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+                rows={6}
+                data-testid="input-message-content"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMessageDialogOpen(false)}
+              data-testid="button-cancel-message"
+            >
+              Avbryt
+            </Button>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || sendMessageMutation.isPending}
+              data-testid="button-confirm-send-message"
+            >
+              {sendMessageMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Skicka"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

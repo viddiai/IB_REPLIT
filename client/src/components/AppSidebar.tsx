@@ -1,7 +1,9 @@
-import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, Users, Mail } from "lucide-react";
+import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, Users, Mail, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import logoPath from "@assets/logo2_1760052846978.webp";
 import {
   Sidebar,
@@ -48,6 +50,12 @@ const menuItems = [
     roles: ["MANAGER"],
   },
   {
+    title: "Meddelanden",
+    url: "/messages",
+    icon: MessageCircle,
+    roles: ["MANAGER", "SALJARE"],
+  },
+  {
     title: "Inställningar",
     url: "/settings",
     icon: Settings,
@@ -57,6 +65,14 @@ const menuItems = [
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
+
+  // Fetch unread message count
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ["/api/messages/unread-count"],
+    refetchInterval: 30000, // Poll every 30 seconds
+  });
+
+  const unreadCount = unreadData?.count || 0;
 
   const visibleMenuItems = menuItems.filter((item) => 
     item.roles.includes(user?.role || "SALJARE")
@@ -103,6 +119,15 @@ export function AppSidebar() {
                     <a href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                       <item.icon />
                       <span>{item.title}</span>
+                      {item.title === "Meddelanden" && unreadCount > 0 && (
+                        <Badge 
+                          variant="default" 
+                          className="ml-auto"
+                          data-testid="badge-unread-messages"
+                        >
+                          {unreadCount}
+                        </Badge>
+                      )}
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

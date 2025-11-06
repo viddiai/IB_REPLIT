@@ -22,6 +22,7 @@ import LeadDetail from "@/pages/LeadDetail";
 import SellerPools from "@/pages/SellerPools";
 import Settings from "@/pages/Settings";
 import TestImap from "@/pages/TestImap";
+import Messages from "@/pages/Messages";
 
 function AuthenticatedRouter() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -63,6 +64,7 @@ function AuthenticatedRouter() {
               <Route path="/leads/create" component={CreateLead} />
               <Route path="/leads/:id" component={LeadDetail} />
               <Route path="/seller-pools" component={SellerPools} />
+              <Route path="/messages" component={Messages} />
               <Route path="/settings" component={Settings} />
               <Route path="/test-imap" component={TestImap} />
               <Route component={NotFound} />

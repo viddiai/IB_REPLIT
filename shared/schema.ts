@@ -149,6 +149,16 @@ export const emailNotificationLogs = pgTable("email_notification_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const messages = pgTable("messages", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id", { length: 255 }).notNull().references(() => users.id),
+  receiverId: varchar("receiver_id", { length: 255 }).notNull().references(() => users.id),
+  content: text("content").notNull(),
+  leadId: varchar("lead_id", { length: 255 }).references(() => leads.id, { onDelete: "set null" }),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -331,3 +341,19 @@ export const insertEmailNotificationLogSchema = createInsertSchema(emailNotifica
 
 export type InsertEmailNotificationLog = z.infer<typeof insertEmailNotificationLogSchema>;
 export type EmailNotificationLog = typeof emailNotificationLogs.$inferSelect;
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+  isRead: true,
+});
+
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
+export type MessageWithUsers = Message & {
+  senderName: string;
+  senderProfileImageUrl: string | null;
+  receiverName: string;
+  receiverProfileImageUrl: string | null;
+  leadTitle?: string | null;
+};
