@@ -516,9 +516,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = updateNotificationPreferencesSchema.parse(req.body);
-      const updatedUser = await storage.updateUser(userId, validatedData);
-
-      // If email notifications are disabled, also disable all seller pools
+      
+      // If email notifications are being disabled, also disable all seller pools
       if (validatedData.emailOnLeadAssignment === false) {
         const userPools = await storage.getSellerPoolsByUserId(userId);
         for (const pool of userPools) {
@@ -532,6 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const updatedUser = await storage.updateUser(userId, validatedData);
       res.json(sanitizeUser(updatedUser));
     } catch (error: any) {
       if (error instanceof z.ZodError) {
