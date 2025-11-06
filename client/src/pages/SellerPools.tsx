@@ -25,8 +25,8 @@ function PoolItem({ pool, resource }: { pool: SellerPool; resource?: User }) {
   const latestChange = history[0];
   
   const togglePoolMutation = useMutation({
-    mutationFn: async ({ poolId, isEnabled }: { poolId: number; isEnabled: boolean }) => {
-      return apiRequest("PATCH", `/api/seller-pools/${poolId}/status`, { isEnabled });
+    mutationFn: async ({ poolId, isEnabled }: { poolId: string; isEnabled: boolean }) => {
+      return apiRequest("PATCH", `/api/seller-pools/${poolId}`, { isEnabled });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller-pools"] });
