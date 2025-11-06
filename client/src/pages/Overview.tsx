@@ -1,16 +1,33 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp, Users, Clock, AlertTriangle, Power } from "lucide-react";
+import { ArrowRight, TrendingUp, Users, Clock, AlertTriangle, Power, Activity } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import type { SellerPool } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+
+interface OverviewStats {
+  newLeadsToday: number;
+  newLeadsDifference: number;
+  pendingAcceptance: number;
+  activeLeads: number;
+  activeSellers: number;
+  uniqueFacilities: number;
+}
 
 export default function Overview() {
   const { user } = useAuth();
   const isManager = user?.role === "MANAGER";
   const [, setLocation] = useLocation();
+
+  // Fetch overview stats with auto-refresh every 30 seconds
+  const { data: stats, isLoading: statsLoading } = useQuery<OverviewStats>({
+    queryKey: ["/api/overview/stats"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchOnWindowFocus: true,
+  });
 
   // Fetch user's seller pools
   const { data: allSellerPools = [] } = useQuery<SellerPool[]>({
@@ -50,54 +67,89 @@ export default function Overview() {
         </Alert>
       )}
 
-      <div className={`grid grid-cols-1 gap-6 ${isManager ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-        <Link href="/leads">
-          <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-nya-leads-idag">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Nya leads idag</p>
-                <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-nya-leads-idag">8</p>
-                <p className="text-sm text-muted-foreground mt-1">+2 från igår</p>
-              </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-          </Card>
-        </Link>
-
-        <Link href="/leads">
-          <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-vantande-tilldelning">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Väntande tilldelning</p>
-                <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-vantande-tilldelning">12</p>
-                <p className="text-sm text-muted-foreground mt-1">Kräver åtgärd</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
-                <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-              </div>
-            </div>
-          </Card>
-        </Link>
-
-        {isManager && (
-          <Link href="/seller-pools">
-            <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-aktiva-saljare">
+      {statsLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className={`grid grid-cols-1 gap-6 ${isManager ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+          <Link href="/leads">
+            <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-nya-leads-idag">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Aktiva säljare</p>
-                  <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-aktiva-saljare">8</p>
-                  <p className="text-sm text-muted-foreground mt-1">3 anläggningar</p>
+                  <p className="text-sm font-medium text-muted-foreground">Nya leads idag</p>
+                  <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-nya-leads-idag">
+                    {stats?.newLeadsToday ?? 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {stats?.newLeadsDifference !== undefined && stats.newLeadsDifference >= 0
+                      ? `+${stats.newLeadsDifference} från igår`
+                      : `${stats?.newLeadsDifference ?? 0} från igår`}
+                  </p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-primary" />
                 </div>
               </div>
             </Card>
           </Link>
-        )}
-      </div>
+
+          <Link href="/leads">
+            <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-vantande-acceptance">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Väntande accept</p>
+                  <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-vantande-acceptance">
+                    {stats?.pendingAcceptance ?? 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Kräver åtgärd</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                </div>
+              </div>
+            </Card>
+          </Link>
+
+          <Link href="/leads">
+            <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-aktiva-leads">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Aktiva leads</p>
+                  <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-aktiva-leads">
+                    {stats?.activeLeads ?? 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Pågående arbete</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </Card>
+          </Link>
+
+          {isManager && (
+            <Link href="/seller-pools">
+              <Card className="p-6 hover-elevate active-elevate-2 cursor-pointer" data-testid="card-aktiva-saljare">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Aktiva säljare</p>
+                    <p className="text-3xl font-bold text-foreground mt-2" data-testid="value-aktiva-saljare">
+                      {stats?.activeSellers ?? 0}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {stats?.uniqueFacilities ?? 0} anläggningar
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                    <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          )}
+        </div>
+      )}
 
       <Card className="p-6">
         <h2 className="text-xl font-semibold text-foreground mb-4">Snabbåtkomst</h2>

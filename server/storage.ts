@@ -729,6 +729,70 @@ export class DbStorage implements IStorage {
       .returning();
     return notificationLog;
   }
+
+  async getOverviewStats(userId?: string, userRole?: string) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    // Build base conditions
+    const baseConditions = [eq(leads.isDeleted, false)];
+    
+    // If not manager, filter by assigned user
+    if (userRole !== "MANAGER" && userId) {
+      baseConditions.push(eq(leads.assignedToId, userId));
+    }
+
+    // Get all active leads for this user/role
+    const allLeads = await db
+      .select()
+      .from(leads)
+      .where(and(...baseConditions));
+
+    // Nya leads idag
+    const newLeadsToday = allLeads.filter(l => l.createdAt >= todayStart).length;
+    const newLeadsYesterday = allLeads.filter(l => 
+      l.createdAt >= yesterdayStart && l.createdAt < todayStart
+    ).length;
+    const newLeadsDifference = newLeadsToday - newLeadsYesterday;
+
+    // Väntande acceptance (status VANTAR_PA_ACCEPT)
+    const pendingAcceptance = allLeads.filter(l => l.status === "VANTAR_PA_ACCEPT").length;
+
+    // Aktiva leads (pågående arbete - NY_INTRESSEANMALAN, KUND_KONTAKTAD, OFFERT_SKICKAD)
+    const activeLeads = allLeads.filter(l => 
+      l.status === "NY_INTRESSEANMALAN" || 
+      l.status === "KUND_KONTAKTAD" || 
+      l.status === "OFFERT_SKICKAD"
+    ).length;
+
+    // Aktiva säljare (only for managers)
+    let activeSellers = 0;
+    let uniqueFacilities = 0;
+    
+    if (userRole === "MANAGER") {
+      const activeSellerPools = await db
+        .select()
+        .from(sellerPools)
+        .where(eq(sellerPools.isEnabled, true));
+      
+      activeSellers = activeSellerPools.length;
+      
+      // Count unique facilities
+      const facilities = new Set(activeSellerPools.map(p => p.anlaggning));
+      uniqueFacilities = facilities.size;
+    }
+
+    return {
+      newLeadsToday,
+      newLeadsDifference,
+      pendingAcceptance,
+      activeLeads,
+      activeSellers,
+      uniqueFacilities,
+    };
+  }
 }
 
 export const storage = new DbStorage();
