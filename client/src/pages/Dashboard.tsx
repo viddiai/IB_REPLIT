@@ -106,15 +106,15 @@ export default function Dashboard() {
   ].filter(item => item.count > 0);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Översikt & Statistik</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Översikt & Statistik</p>
         </div>
         <Button 
           variant="outline" 
-          className="gap-2" 
+          className="gap-2 w-full sm:w-auto" 
           onClick={() => setShowFilters(!showFilters)}
           data-testid="button-toggle-filters"
         >
@@ -124,9 +124,9 @@ export default function Dashboard() {
       </div>
 
       {showFilters && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Filtrera statistik</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold mb-4">Filtrera statistik</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="seller-filter">Säljare</Label>
               <Select value={sellerFilter} onValueChange={setSellerFilter}>
