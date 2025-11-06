@@ -78,6 +78,14 @@ Lead objects include comprehensive vehicle information:
 - Status tracking with timestamps for assignment, first contact, and closure
 - Registration timestamp: Automatically captured createdAt timestamp displayed in Swedish timezone (CET/CEST) in format YYYY-MM-DD HH:MM in both list view and detail view
 
+**Vehicle Information Field Order (in Create Lead and Lead Detail pages):**
+1. Fordon (vehicle title) - Required
+2. Reg.Nr (registration number) - Optional, Swedish format ABC123 or ABC12D
+3. Anläggning (facility) - Required dropdown (Falkenberg, Göteborg, Trollhättan)
+4. Verendus-ID - Optional text field for external system integration
+5. Länk (link to listing) - Optional URL
+6. Meddelande (customer message) - Optional textarea
+
 Task management features:
 - Tasks include description, due date with time, completion status, and timestamps
 - Time input with default value of 09:00 when creating tasks
