@@ -5,6 +5,8 @@ import LeadCard from "@/components/LeadCard";
 import FilterBar from "@/components/FilterBar";
 import StatusTabs from "@/components/StatusTabs";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -21,6 +23,10 @@ export default function LeadsList() {
   const [locationFilter, setLocationFilter] = useState("all");
   const [sellerFilter, setSellerFilter] = useState("all");
   const [showOnlyTasksToday, setShowOnlyTasksToday] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageContent, setMessageContent] = useState("");
+  const [messageRecipientId, setMessageRecipientId] = useState<string | null>(null);
+  const [messageLeadId, setMessageLeadId] = useState<string | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -95,6 +101,44 @@ export default function LeadsList() {
       });
     },
   });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async (data: { receiverId: string; content: string; leadId?: string }) => {
+      return await apiRequest("POST", "/api/messages", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
+      if (messageRecipientId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/messages/${messageRecipientId}`] });
+      }
+      setMessageDialogOpen(false);
+      setMessageContent("");
+      setMessageRecipientId(null);
+      setMessageLeadId(null);
+      toast({
+        title: "Meddelande skickat",
+        description: "Ditt meddelande har skickats",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fel",
+        description: "Kunde inte skicka meddelandet",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!messageContent.trim() || !messageRecipientId) return;
+
+    sendMessageMutation.mutate({
+      receiverId: messageRecipientId,
+      content: messageContent,
+      leadId: messageLeadId || undefined,
+    });
+  };
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
@@ -224,6 +268,7 @@ export default function LeadsList() {
                 status={lead.status}
                 createdAt={formatInTimeZone(new Date(lead.createdAt), SWEDISH_TZ, "yyyy-MM-dd HH:mm")}
                 assignedTo={lead.assignedToName || (lead.assignedToId ? "Tilldelad" : undefined)}
+                assignedToId={lead.assignedToId || undefined}
                 assignedAt={lead.assignedAt}
                 acceptStatus={lead.acceptStatus}
                 vehicleLink={lead.vehicleLink || undefined}
@@ -240,11 +285,77 @@ export default function LeadsList() {
                 onDecline={isAssignedToMe ? () => {
                   declineLeadMutation.mutate(lead.id);
                 } : undefined}
+                onSendMessage={lead.assignedToId ? () => {
+                  setMessageRecipientId(lead.assignedToId!);
+                  setMessageLeadId(lead.id);
+                  const leadInfo = `Angående lead: ${lead.vehicleTitle} (${lead.contactName})\n\n`;
+                  setMessageContent(leadInfo);
+                  setMessageDialogOpen(true);
+                } : undefined}
               />
             );
           })
         )}
       </div>
+
+      {/* Message Dialog */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent data-testid="dialog-send-message-from-list">
+          <DialogHeader>
+            <DialogTitle>Skicka meddelande</DialogTitle>
+            <DialogDescription>
+              Skicka ett meddelande till den tilldelade säljaren om detta lead.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Mottagare:</p>
+              <p className="text-sm text-muted-foreground">
+                {messageRecipientId
+                  ? users?.find((u) => u.id === messageRecipientId)
+                    ? `${users.find((u) => u.id === messageRecipientId)?.firstName} ${users.find((u) => u.id === messageRecipientId)?.lastName}`
+                    : "Okänd användare"
+                  : "Välj mottagare"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Meddelande:</p>
+              <Textarea
+                placeholder="Skriv ditt meddelande här..."
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+                rows={8}
+                data-testid="input-message-content-from-list"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMessageDialogOpen(false);
+                setMessageContent("");
+                setMessageRecipientId(null);
+                setMessageLeadId(null);
+              }}
+              data-testid="button-cancel-message-from-list"
+            >
+              Avbryt
+            </Button>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || sendMessageMutation.isPending}
+              data-testid="button-confirm-send-message-from-list"
+            >
+              {sendMessageMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Skicka"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import StatusBadge, { type LeadStatus } from "./StatusBadge";
-import { MapPin, Calendar, ExternalLink, User, Car, Clock, AlertCircle } from "lucide-react";
+import { MapPin, Calendar, ExternalLink, User, Car, Clock, AlertCircle, MessageCircle } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { isToday, isPast, differenceInDays, formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -19,6 +19,7 @@ interface LeadCardProps {
   status: LeadStatus;
   createdAt: string;
   assignedTo?: string;
+  assignedToId?: string;
   assignedAt?: Date | null;
   acceptStatus?: "pending" | "accepted" | "declined" | null;
   vehicleLink?: string;
@@ -32,6 +33,7 @@ interface LeadCardProps {
   onAssign?: () => void;
   onAccept?: () => void;
   onDecline?: () => void;
+  onSendMessage?: () => void;
 }
 
 export default function LeadCard({
@@ -45,6 +47,7 @@ export default function LeadCard({
   status,
   createdAt,
   assignedTo,
+  assignedToId,
   assignedAt,
   acceptStatus,
   vehicleLink,
@@ -53,7 +56,8 @@ export default function LeadCard({
   onViewDetails,
   onAssign,
   onAccept,
-  onDecline
+  onDecline,
+  onSendMessage
 }: LeadCardProps) {
   const isPendingAcceptance = status === "VANTAR_PA_ACCEPT" && (acceptStatus === "pending" || !acceptStatus);
 
@@ -249,6 +253,17 @@ export default function LeadCard({
           >
             Visa detaljer
           </Button>
+          {assignedToId && onSendMessage && (
+            <Button 
+              size="sm" 
+              onClick={onSendMessage}
+              data-testid={`button-send-message-${id}`}
+              className="bg-blue-600 text-white gap-1.5"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Meddelande
+            </Button>
+          )}
           {!assignedTo && onAssign && (
             <Button 
               variant="outline" 
