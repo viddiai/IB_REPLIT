@@ -9,7 +9,14 @@ Preferred communication style: Simple, everyday language.
 ### System Architecture
 
 #### Frontend Architecture
-The frontend uses React with TypeScript, Vite, Wouter for routing, and TanStack Query for data management. It features a custom design system with Tailwind CSS, shadcn/ui components, and Inter font family, supporting light/dark modes. State management primarily relies on React Query for server state and local component state for UI. Key UI patterns include a public contact form, a dashboard with KPIs, tabbed lead list views with seller filtering, timestamp display (YYYY-MM-DD HH:MM format in Swedish timezone), and next task display with visual priority indicators, detailed lead views with notes and tasks, and manager-specific views for seller pool management and lead reassignment. Responsive design is a core principle.
+The frontend uses React with TypeScript, Vite, Wouter for routing, and TanStack Query for data management. It features a custom design system with Tailwind CSS, shadcn/ui components, and Inter font family, supporting light/dark modes. State management primarily relies on React Query for server state and local component state for UI. Key UI patterns include a public contact form, an overview page with real-time KPIs, a dashboard with analytics, tabbed lead list views with seller filtering, timestamp display (YYYY-MM-DD HH:MM format in Swedish timezone), and next task display with visual priority indicators, detailed lead views with notes and tasks, and manager-specific views for seller pool management and lead reassignment. Responsive design is a core principle.
+
+**Overview Page KPIs:**
+- Real-time statistics that auto-refresh every 30 seconds
+- Four KPI blocks for managers: "Nya leads idag" (with change from yesterday), "Väntande accept" (pending acceptance count), "Aktiva leads" (leads in progress), "Aktiva säljare" (active sellers and facilities)
+- Three KPI blocks for sellers: Same as managers except "Aktiva säljare" which is manager-only
+- Data filtered by user role: sellers see only their assigned leads, managers see all leads
+- Visual indicators with icons and color-coded backgrounds for each metric type
 
 **Next Task Feature:**
 - Each lead card displays the next upcoming task (earliest future/today's task)
@@ -62,7 +69,12 @@ Task management features:
 - Display format: "YYYY-MM-DD HH:MM - Task description"
 
 #### API Routes
-The API includes public endpoints for contact forms and Bytbil webhooks, authentication routes for login/logout and password management, and protected routes for managing leads, notes, tasks, user profiles, and seller pools. Dashboard endpoints provide KPI statistics with filtering capabilities.
+The API includes public endpoints for contact forms and Bytbil webhooks, authentication routes for login/logout and password management, and protected routes for managing leads, notes, tasks, user profiles, and seller pools. Dashboard endpoints provide KPI statistics with filtering capabilities, and overview endpoints provide real-time KPI data for the overview page.
+
+**Overview KPI Endpoint:**
+- GET `/api/overview/stats` - Returns real-time KPI metrics (new leads today with difference from yesterday, pending acceptance count, active leads count, active sellers and facilities for managers)
+- Role-filtered data: sellers see only their assigned leads, managers see all leads
+- Auto-refreshes on the frontend every 30 seconds
 
 **Lead Acceptance Endpoints:**
 - POST `/api/leads/:id/accept` - Accept a lead (validates assignedToId === userId)
