@@ -250,11 +250,18 @@ export default function Settings() {
     mutationFn: async (data: { emailOnLeadAssignment: boolean }) => {
       return apiRequest("PATCH", `/api/users/${user?.id}/notifications`, data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // If email notifications were disabled, also invalidate seller pools
+      if (variables.emailOnLeadAssignment === false) {
+        queryClient.invalidateQueries({ queryKey: ["/api/my-seller-pools"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/seller-pools"] });
+      }
       toast({
         title: "Inställningar uppdaterade",
-        description: "Dina notifikationsinställningar har sparats.",
+        description: variables.emailOnLeadAssignment === false 
+          ? "E-postnotifikationer avstängda. Din status i resurspoolerna har också inaktiverats."
+          : "Dina notifikationsinställningar har sparats.",
       });
     },
     onError: () => {
