@@ -11,7 +11,7 @@ import { Search, Send, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import type { MessageWithUsers } from "@shared/schema";
 
 type Conversation = {
@@ -242,7 +242,7 @@ export default function Messages() {
                               : "bg-muted"
                           } rounded-lg p-3`}
                         >
-                          {message.leadTitle && (
+                          {message.leadTitle && message.leadId && (
                             <div
                               className={`text-xs mb-2 pb-2 border-b ${
                                 isOwnMessage
@@ -250,7 +250,18 @@ export default function Messages() {
                                   : "border-border"
                               }`}
                             >
-                              Lead: {message.leadTitle}
+                              Lead:{" "}
+                              <Link
+                                href={`/leads/${message.leadId}`}
+                                className={`underline hover:no-underline ${
+                                  isOwnMessage
+                                    ? "text-primary-foreground hover:text-primary-foreground/80"
+                                    : "text-foreground hover:text-foreground/80"
+                                }`}
+                                data-testid={`link-lead-${message.leadId}`}
+                              >
+                                {message.leadTitle}
+                              </Link>
                             </div>
                           )}
                           <p className="break-words whitespace-pre-wrap">
