@@ -1457,15 +1457,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/messages/:otherUserId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/messages/lead/:leadId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const otherUserId = req.params.otherUserId;
+      const leadId = req.params.leadId;
       
-      const messages = await storage.getMessages(userId, otherUserId);
+      const messages = await storage.getMessages(userId, leadId);
       
       // Mark messages as read
-      await storage.markMessagesAsRead(userId, otherUserId);
+      await storage.markMessagesAsRead(userId, leadId);
       
       res.json(messages);
     } catch (error) {

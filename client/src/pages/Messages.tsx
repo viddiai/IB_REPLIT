@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Send, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -15,18 +17,23 @@ import { useLocation, Link } from "wouter";
 import type { MessageWithUsers } from "@shared/schema";
 
 type Conversation = {
-  otherUserId: string;
-  otherUserName: string;
-  otherUserProfileImageUrl: string | null;
+  leadId: string;
+  leadTitle: string;
   lastMessage: string;
   lastMessageTime: Date;
   unreadCount: number;
+  participants: Array<{
+    userId: string;
+    userName: string;
+    userProfileImageUrl: string | null;
+  }>;
 };
 
 export default function Messages() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [messageContent, setMessageContent] = useState("");
 
@@ -37,17 +44,17 @@ export default function Messages() {
 
   // Fetch messages for selected conversation
   const { data: messages = [], isLoading: messagesLoading } = useQuery<MessageWithUsers[]>({
-    queryKey: [`/api/messages/${selectedUserId}`],
-    enabled: !!selectedUserId,
+    queryKey: [`/api/messages/lead/${selectedLeadId}`],
+    enabled: !!selectedLeadId,
   });
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (data: { receiverId: string; content: string; leadId?: string }) => {
+    mutationFn: async (data: { receiverId: string; content: string; leadId: string }) => {
       return await apiRequest("POST", "/api/messages", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/messages/${selectedUserId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/messages/lead/${selectedLeadId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
       setMessageContent("");
@@ -55,20 +62,22 @@ export default function Messages() {
   });
 
   const handleSendMessage = () => {
-    if (!messageContent.trim() || !selectedUserId) return;
+    if (!messageContent.trim() || !selectedLeadId || !selectedRecipientId) return;
 
     sendMessageMutation.mutate({
-      receiverId: selectedUserId,
+      receiverId: selectedRecipientId,
       content: messageContent,
+      leadId: selectedLeadId,
     });
   };
 
   const filteredConversations = conversations.filter((conv) =>
-    conv.otherUserName.toLowerCase().includes(searchQuery.toLowerCase())
+    conv.leadTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.participants.some(p => p.userName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const selectedConversation = conversations.find(
-    (conv) => conv.otherUserId === selectedUserId
+    (conv) => conv.leadId === selectedLeadId
   );
 
   const getInitials = (name: string) => {
@@ -95,7 +104,7 @@ export default function Messages() {
       {/* Conversations List */}
       <div
         className={`${
-          selectedUserId ? "hidden md:flex" : "flex"
+          selectedLeadId ? "hidden md:flex" : "flex"
         } w-full md:w-80 border-r flex-col`}
       >
         <div className="p-4 border-b">
@@ -127,46 +136,56 @@ export default function Messages() {
             <div>
               {filteredConversations.map((conversation) => (
                 <div
-                  key={conversation.otherUserId}
-                  onClick={() => setSelectedUserId(conversation.otherUserId)}
+                  key={conversation.leadId}
+                  onClick={() => {
+                    setSelectedLeadId(conversation.leadId);
+                    const otherParticipants = conversation.participants.filter(p => p.userId !== user?.id);
+                    if (otherParticipants.length > 0) {
+                      setSelectedRecipientId(otherParticipants[0].userId);
+                    }
+                  }}
                   className={`p-4 cursor-pointer hover-elevate active-elevate-2 border-b ${
-                    selectedUserId === conversation.otherUserId ? "bg-accent" : ""
+                    selectedLeadId === conversation.leadId ? "bg-accent" : ""
                   }`}
-                  data-testid={`conversation-${conversation.otherUserId}`}
+                  data-testid={`conversation-${conversation.leadId}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <Avatar>
-                      <AvatarImage src={conversation.otherUserProfileImageUrl || undefined} />
-                      <AvatarFallback>
-                        {getInitials(conversation.otherUserName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p
-                          className={`font-medium truncate ${
-                            conversation.unreadCount > 0 ? "font-bold" : ""
-                          }`}
-                          data-testid={`text-conversation-name-${conversation.otherUserId}`}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p
+                        className={`font-medium truncate ${
+                          conversation.unreadCount > 0 ? "font-bold" : ""
+                        }`}
+                        data-testid={`text-conversation-lead-${conversation.leadId}`}
+                      >
+                        {conversation.leadTitle}
+                      </p>
+                      {conversation.unreadCount > 0 && (
+                        <span
+                          className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5 min-w-5 text-center"
+                          data-testid={`badge-unread-${conversation.leadId}`}
                         >
-                          {conversation.otherUserName}
-                        </p>
-                        {conversation.unreadCount > 0 && (
-                          <span
-                            className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5 min-w-5 text-center"
-                            data-testid={`badge-unread-${conversation.otherUserId}`}
-                          >
-                            {conversation.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate mt-1">
-                        {conversation.lastMessage}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatMessageTime(conversation.lastMessageTime)}
-                      </p>
+                          {conversation.unreadCount}
+                        </span>
+                      )}
                     </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {conversation.participants.map((participant, index) => (
+                        <Badge 
+                          key={participant.userId} 
+                          variant="secondary" 
+                          className="text-xs"
+                          data-testid={`badge-participant-${participant.userId}`}
+                        >
+                          {participant.userName}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {conversation.lastMessage}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatMessageTime(conversation.lastMessageTime)}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -176,32 +195,48 @@ export default function Messages() {
       </div>
 
       {/* Chat Window */}
-      <div className={`${selectedUserId ? "flex" : "hidden md:flex"} flex-1 flex-col`}>
-        {selectedUserId && selectedConversation ? (
+      <div className={`${selectedLeadId ? "flex" : "hidden md:flex"} flex-1 flex-col`}>
+        {selectedLeadId && selectedConversation ? (
           <>
             {/* Chat Header */}
-            <div className="p-3 sm:p-4 border-b flex items-center gap-2 sm:gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden flex-shrink-0"
-                onClick={() => setSelectedUserId(null)}
-                data-testid="button-back-to-conversations"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <Avatar className="flex-shrink-0">
-                <AvatarImage
-                  src={selectedConversation.otherUserProfileImageUrl || undefined}
-                />
-                <AvatarFallback>
-                  {getInitials(selectedConversation.otherUserName)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-semibold truncate" data-testid="text-chat-user-name">
-                  {selectedConversation.otherUserName}
-                </h2>
+            <div className="p-3 sm:p-4 border-b">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden flex-shrink-0"
+                  onClick={() => {
+                    setSelectedLeadId(null);
+                    setSelectedRecipientId(null);
+                  }}
+                  data-testid="button-back-to-conversations"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold truncate" data-testid="text-chat-lead-title">
+                    {selectedConversation.leadTitle}
+                  </h2>
+                  <Link 
+                    href={`/leads/${selectedConversation.leadId}`}
+                    className="text-xs text-primary hover:underline"
+                    data-testid="link-view-lead"
+                  >
+                    Visa lead
+                  </Link>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Deltagare:</span>
+                {selectedConversation.participants.map((participant) => (
+                  <Badge 
+                    key={participant.userId} 
+                    variant="secondary"
+                    data-testid={`badge-chat-participant-${participant.userId}`}
+                  >
+                    {participant.userName}
+                  </Badge>
+                ))}
               </div>
             </div>
 
@@ -219,9 +254,6 @@ export default function Messages() {
                 <div className="space-y-3 sm:space-y-4">
                   {messages.map((message) => {
                     const isOwnMessage = message.senderId === user.id;
-                    const senderName = isOwnMessage
-                      ? `${user.firstName} ${user.lastName}`.trim()
-                      : selectedConversation?.otherUserName || "Okänd";
                     
                     return (
                       <div
@@ -231,7 +263,7 @@ export default function Messages() {
                       >
                         {/* Sender name */}
                         <p className="text-xs text-muted-foreground mb-1 px-1">
-                          {senderName}
+                          {message.senderName}
                         </p>
                         
                         {/* Message bubble */}
@@ -242,28 +274,9 @@ export default function Messages() {
                               : "bg-muted"
                           } rounded-lg p-3`}
                         >
-                          {message.leadTitle && message.leadId && (
-                            <div
-                              className={`text-xs mb-2 pb-2 border-b ${
-                                isOwnMessage
-                                  ? "border-primary-foreground/20"
-                                  : "border-border"
-                              }`}
-                            >
-                              Lead:{" "}
-                              <Link
-                                href={`/leads/${message.leadId}`}
-                                className={`underline hover:no-underline ${
-                                  isOwnMessage
-                                    ? "text-primary-foreground hover:text-primary-foreground/80"
-                                    : "text-foreground hover:text-foreground/80"
-                                }`}
-                                data-testid={`link-lead-${message.leadId}`}
-                              >
-                                {message.leadTitle}
-                              </Link>
-                            </div>
-                          )}
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Till: {message.receiverName}
+                          </p>
                           <p className="break-words whitespace-pre-wrap">
                             {message.content}
                           </p>
@@ -285,7 +298,31 @@ export default function Messages() {
             </ScrollArea>
 
             {/* Message Input */}
-            <div className="p-3 sm:p-4 border-t">
+            <div className="p-3 sm:p-4 border-t space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Till:</span>
+                <Select 
+                  value={selectedRecipientId || undefined} 
+                  onValueChange={setSelectedRecipientId}
+                >
+                  <SelectTrigger className="w-[200px]" data-testid="select-recipient">
+                    <SelectValue placeholder="Välj mottagare" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedConversation.participants
+                      .filter(p => p.userId !== user?.id)
+                      .map((participant) => (
+                        <SelectItem 
+                          key={participant.userId} 
+                          value={participant.userId}
+                          data-testid={`select-recipient-option-${participant.userId}`}
+                        >
+                          {participant.userName}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder="Skriv ett meddelande..."
@@ -303,7 +340,7 @@ export default function Messages() {
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!messageContent.trim() || sendMessageMutation.isPending}
+                  disabled={!messageContent.trim() || !selectedRecipientId || sendMessageMutation.isPending}
                   size="icon"
                   data-testid="button-send-message"
                 >

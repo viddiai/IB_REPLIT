@@ -104,16 +104,20 @@ export interface IStorage {
   
   createMessage(message: InsertMessage): Promise<Message>;
   getConversations(userId: string): Promise<Array<{
-    otherUserId: string;
-    otherUserName: string;
-    otherUserProfileImageUrl: string | null;
+    leadId: string;
+    leadTitle: string;
     lastMessage: string;
     lastMessageTime: Date;
     unreadCount: number;
+    participants: Array<{
+      userId: string;
+      userName: string;
+      userProfileImageUrl: string | null;
+    }>;
   }>>;
-  getMessages(userId: string, otherUserId: string): Promise<MessageWithUsers[]>;
+  getMessages(userId: string, leadId: string): Promise<MessageWithUsers[]>;
   getLeadMessages(leadId: string): Promise<MessageWithUsers[]>;
-  markMessagesAsRead(userId: string, otherUserId: string): Promise<void>;
+  markMessagesAsRead(userId: string, leadId: string): Promise<void>;
   getUnreadMessageCount(userId: string): Promise<number>;
   hasMessagesForLead(userId: string, leadId: string): Promise<boolean>;
 }
@@ -807,12 +811,16 @@ export class DbStorage implements IStorage {
   }
 
   async getConversations(userId: string): Promise<Array<{
-    otherUserId: string;
-    otherUserName: string;
-    otherUserProfileImageUrl: string | null;
+    leadId: string;
+    leadTitle: string;
     lastMessage: string;
     lastMessageTime: Date;
     unreadCount: number;
+    participants: Array<{
+      userId: string;
+      userName: string;
+      userProfileImageUrl: string | null;
+    }>;
   }>> {
     const allMessages = await db
       .select({
@@ -820,57 +828,75 @@ export class DbStorage implements IStorage {
         senderId: messages.senderId,
         receiverId: messages.receiverId,
         content: messages.content,
+        leadId: messages.leadId,
         isRead: messages.isRead,
         createdAt: messages.createdAt,
-        senderFirstName: users.firstName,
-        senderLastName: users.lastName,
-        senderProfileImageUrl: users.profileImageUrl,
       })
       .from(messages)
-      .leftJoin(users, eq(messages.senderId, users.id))
       .where(
         sql`${messages.senderId} = ${userId} OR ${messages.receiverId} = ${userId}`
       )
       .orderBy(desc(messages.createdAt));
 
     const conversationsMap = new Map<string, {
-      otherUserId: string;
-      otherUserName: string;
-      otherUserProfileImageUrl: string | null;
+      leadId: string;
+      leadTitle: string;
       lastMessage: string;
       lastMessageTime: Date;
       unreadCount: number;
+      participantIds: Set<string>;
     }>();
 
     for (const msg of allMessages) {
-      const otherUserId = msg.senderId === userId ? msg.receiverId : msg.senderId;
-      
-      if (!conversationsMap.has(otherUserId)) {
-        const otherUser = await this.getUser(otherUserId);
-        const otherUserName = otherUser 
-          ? `${otherUser.firstName || ''} ${otherUser.lastName || ''}`.trim() || otherUser.email
-          : 'Unknown User';
-        
-        conversationsMap.set(otherUserId, {
-          otherUserId,
-          otherUserName,
-          otherUserProfileImageUrl: otherUser?.profileImageUrl || null,
+      if (!conversationsMap.has(msg.leadId)) {
+        const lead = await this.getLead(msg.leadId);
+        conversationsMap.set(msg.leadId, {
+          leadId: msg.leadId,
+          leadTitle: lead?.vehicleTitle || 'Unknown Lead',
           lastMessage: msg.content,
           lastMessageTime: msg.createdAt,
           unreadCount: 0,
+          participantIds: new Set(),
         });
       }
 
-      if (msg.senderId !== userId && !msg.isRead) {
-        const conversation = conversationsMap.get(otherUserId)!;
+      const conversation = conversationsMap.get(msg.leadId)!;
+      conversation.participantIds.add(msg.senderId);
+      conversation.participantIds.add(msg.receiverId);
+
+      if (msg.receiverId === userId && !msg.isRead) {
         conversation.unreadCount++;
       }
     }
 
-    return Array.from(conversationsMap.values());
+    const conversations = await Promise.all(
+      Array.from(conversationsMap.values()).map(async (conv) => {
+        const participantUsers = await db
+          .select()
+          .from(users)
+          .where(inArray(users.id, Array.from(conv.participantIds)));
+
+        const participants = participantUsers.map(user => ({
+          userId: user.id,
+          userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          userProfileImageUrl: user.profileImageUrl,
+        }));
+
+        return {
+          leadId: conv.leadId,
+          leadTitle: conv.leadTitle,
+          lastMessage: conv.lastMessage,
+          lastMessageTime: conv.lastMessageTime,
+          unreadCount: conv.unreadCount,
+          participants,
+        };
+      })
+    );
+
+    return conversations;
   }
 
-  async getMessages(userId: string, otherUserId: string): Promise<MessageWithUsers[]> {
+  async getMessages(userId: string, leadId: string): Promise<MessageWithUsers[]> {
     const messageList = await db
       .select({
         id: messages.id,
@@ -887,27 +913,32 @@ export class DbStorage implements IStorage {
       .from(messages)
       .leftJoin(users, eq(messages.senderId, users.id))
       .where(
-        sql`(${messages.senderId} = ${userId} AND ${messages.receiverId} = ${otherUserId}) 
-            OR (${messages.senderId} = ${otherUserId} AND ${messages.receiverId} = ${userId})`
+        and(
+          eq(messages.leadId, leadId),
+          sql`(${messages.senderId} = ${userId} OR ${messages.receiverId} = ${userId})`
+        )
       )
       .orderBy(asc(messages.createdAt));
 
-    const messagesWithUsers: MessageWithUsers[] = [];
+    const lead = await this.getLead(leadId);
+    const leadTitle = lead?.vehicleTitle || null;
 
-    for (const msg of messageList) {
-      const receiverUser = await this.getUser(msg.receiverId);
+    const uniqueReceiverIds = Array.from(new Set(messageList.map(msg => msg.receiverId)));
+    const receiverUsers = await db
+      .select()
+      .from(users)
+      .where(inArray(users.id, uniqueReceiverIds));
+
+    const receiverUsersMap = new Map(receiverUsers.map(u => [u.id, u]));
+
+    const messagesWithUsers: MessageWithUsers[] = messageList.map(msg => {
       const senderName = `${msg.senderFirstName || ''} ${msg.senderLastName || ''}`.trim() || 'Unknown';
+      const receiverUser = receiverUsersMap.get(msg.receiverId);
       const receiverName = receiverUser 
         ? `${receiverUser.firstName || ''} ${receiverUser.lastName || ''}`.trim() || receiverUser.email
         : 'Unknown';
 
-      let leadTitle = null;
-      if (msg.leadId) {
-        const lead = await this.getLead(msg.leadId);
-        leadTitle = lead?.vehicleTitle || null;
-      }
-
-      messagesWithUsers.push({
+      return {
         id: msg.id,
         senderId: msg.senderId,
         receiverId: msg.receiverId,
@@ -920,20 +951,20 @@ export class DbStorage implements IStorage {
         receiverName,
         receiverProfileImageUrl: receiverUser?.profileImageUrl || null,
         leadTitle,
-      });
-    }
+      };
+    });
 
     return messagesWithUsers;
   }
 
-  async markMessagesAsRead(userId: string, otherUserId: string): Promise<void> {
+  async markMessagesAsRead(userId: string, leadId: string): Promise<void> {
     await db
       .update(messages)
       .set({ isRead: true })
       .where(
         and(
           eq(messages.receiverId, userId),
-          eq(messages.senderId, otherUserId),
+          eq(messages.leadId, leadId),
           eq(messages.isRead, false)
         )
       );

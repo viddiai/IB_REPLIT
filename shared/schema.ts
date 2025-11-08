@@ -155,7 +155,7 @@ export const messages = pgTable("messages", {
   senderId: varchar("sender_id", { length: 255 }).notNull().references(() => users.id),
   receiverId: varchar("receiver_id", { length: 255 }).notNull().references(() => users.id),
   content: text("content").notNull(),
-  leadId: varchar("lead_id", { length: 255 }).references(() => leads.id, { onDelete: "set null" }),
+  leadId: varchar("lead_id", { length: 255 }).notNull().references(() => leads.id, { onDelete: "cascade" }),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
