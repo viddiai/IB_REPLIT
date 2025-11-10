@@ -22,7 +22,8 @@ function PoolItem({
   canMoveUp, 
   canMoveDown, 
   onMoveUp, 
-  onMoveDown 
+  onMoveDown,
+  isReordering,
 }: { 
   pool: SellerPool; 
   resource?: User;
@@ -30,6 +31,7 @@ function PoolItem({
   canMoveDown: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  isReordering: boolean;
 }) {
   const { toast } = useToast();
   
@@ -42,12 +44,12 @@ function PoolItem({
     mutationFn: async ({ poolId, isEnabled }: { poolId: string; isEnabled: boolean }) => {
       return apiRequest("PATCH", `/api/seller-pools/${poolId}`, { isEnabled });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/seller-pools"] });
       queryClient.invalidateQueries({ queryKey: ["/api/seller-pools", pool.id, "status-history"] });
       toast({
         title: "Status uppdaterad",
-        description: `${resource?.firstName || "Resursen"} har ${pool.isEnabled ? "aktiverats" : "inaktiverats"}.`,
+        description: `${resource?.firstName || "Resursen"} har ${variables.isEnabled ? "aktiverats" : "inaktiverats"}.`,
       });
     },
     onError: () => {
@@ -103,7 +105,7 @@ function PoolItem({
               size="icon"
               variant="ghost"
               onClick={onMoveUp}
-              disabled={!canMoveUp}
+              disabled={!canMoveUp || isReordering}
               data-testid={`button-move-up-${pool.id}`}
               className="h-6 w-6"
             >
@@ -113,7 +115,7 @@ function PoolItem({
               size="icon"
               variant="ghost"
               onClick={onMoveDown}
-              disabled={!canMoveDown}
+              disabled={!canMoveDown || isReordering}
               data-testid={`button-move-down-${pool.id}`}
               className="h-6 w-6"
             >
@@ -279,6 +281,7 @@ export default function SellerPools() {
                     canMoveDown={index < pools.length - 1}
                     onMoveUp={() => handleMoveUp(facility, index)}
                     onMoveDown={() => handleMoveDown(facility, index)}
+                    isReordering={reorderMutation.isPending}
                   />
                 ))
               )}
