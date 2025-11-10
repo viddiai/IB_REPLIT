@@ -53,7 +53,6 @@ export default function LeadDetail() {
   
   const [editingVehicleInfo, setEditingVehicleInfo] = useState(false);
   const [editRegistrationNumber, setEditRegistrationNumber] = useState("");
-  const [editAnlaggning, setEditAnlaggning] = useState("");
   const [editVerendusId, setEditVerendusId] = useState("");
   
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
@@ -197,7 +196,7 @@ export default function LeadDetail() {
   });
 
   const updateVehicleInfoMutation = useMutation({
-    mutationFn: async (data: { registrationNumber?: string; anlaggning?: string; verendusId?: string }) => {
+    mutationFn: async (data: { registrationNumber?: string; verendusId?: string }) => {
       return await apiRequest("PATCH", `/api/leads/${id}/vehicle-info`, data);
     },
     onSuccess: () => {
@@ -302,7 +301,6 @@ export default function LeadDetail() {
 
   const handleEditVehicleInfo = () => {
     setEditRegistrationNumber(lead?.registrationNumber || "");
-    setEditAnlaggning(lead?.anlaggning || "");
     setEditVerendusId(lead?.verendusId || "");
     setEditingVehicleInfo(true);
   };
@@ -319,7 +317,6 @@ export default function LeadDetail() {
     
     updateVehicleInfoMutation.mutate({
       registrationNumber: editRegistrationNumber || undefined,
-      anlaggning: editAnlaggning || undefined,
       verendusId: editVerendusId || undefined,
     });
   };
@@ -327,7 +324,6 @@ export default function LeadDetail() {
   const handleCancelEditVehicleInfo = () => {
     setEditingVehicleInfo(false);
     setEditRegistrationNumber("");
-    setEditAnlaggning("");
     setEditVerendusId("");
   };
 
@@ -530,20 +526,6 @@ export default function LeadDetail() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Anläggning</p>
-                  <Select value={editAnlaggning} onValueChange={setEditAnlaggning}>
-                    <SelectTrigger data-testid="select-edit-anlaggning">
-                      <SelectValue placeholder="Välj anläggning" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Falkenberg">Falkenberg</SelectItem>
-                      <SelectItem value="Göteborg">Göteborg</SelectItem>
-                      <SelectItem value="Trollhättan">Trollhättan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
                   <p className="text-sm font-medium text-muted-foreground mb-2">Verendus-ID</p>
                   <Input
                     value={editVerendusId}
@@ -589,12 +571,6 @@ export default function LeadDetail() {
                     <p className="text-base" data-testid="text-registration-number">
                       {lead.registrationNumber || "-"}
                     </p>
-                  </div>
-                )}
-                {lead.anlaggning && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Anläggning</p>
-                    <p className="text-base" data-testid="text-anlaggning">{lead.anlaggning}</p>
                   </div>
                 )}
                 {(lead.verendusId || editingVehicleInfo) && (

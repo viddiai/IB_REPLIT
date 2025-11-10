@@ -1267,7 +1267,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             (val) => !val || /^[A-Z]{3}\d{2}[A-Z0-9]$/i.test(val),
             { message: "Regnummer måste vara i formatet ABC123 eller ABC12D" }
           ),
-        anlaggning: z.enum(["Falkenberg", "Göteborg", "Trollhättan"]).optional(),
         verendusId: z.string().optional().transform((val) => val || undefined),
       });
 
