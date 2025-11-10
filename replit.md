@@ -15,7 +15,7 @@ The frontend uses React with TypeScript, Vite, Wouter for routing, and TanStack 
 - **Next Task Display:** Lead cards show the next upcoming task with visual priority indicators (overdue, today, within 2 days, future) and sorting by task date.
 - **Lead Acceptance:** Assigned sellers can accept/decline leads via buttons in list and detail views, with proper permission checks.
 - **Lead Reassignment:** Sellers can reassign pending leads to others, triggering a database transaction for atomicity and audit logging.
-- **Seller Pool Integration:** Disabling email notifications automatically disables associated seller pools to prevent lead assignment.
+- **Seller Pool Integration:** Disabling email notifications automatically disables associated seller pools to prevent lead assignment. Additionally, sellers cannot enable availability unless email notifications are active, enforced by both frontend and backend validation with user-friendly error messages and visual highlighting.
 - **Internal Messaging System:** Lead-based conversation grouping, displaying lead title, participants, last message, timestamp, and unread counts. Supports real-time polling and clickable lead references. All UI text is in Swedish.
 
 #### Backend Architecture
