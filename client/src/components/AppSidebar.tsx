@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, Users, Mail, MessageCircle } from "lucide-react";
+import { Home, LayoutDashboard, ListFilter, Settings, Car, LogOut, Users, Mail, MessageCircle, UserCog } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -41,6 +41,12 @@ const menuItems = [
     title: "Resurspool",
     url: "/seller-pools",
     icon: Users,
+    roles: ["MANAGER"],
+  },
+  {
+    title: "Hantera användare",
+    url: "/manage-users",
+    icon: UserCog,
     roles: ["MANAGER"],
   },
   {

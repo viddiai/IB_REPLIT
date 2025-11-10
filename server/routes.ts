@@ -2,8 +2,8 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, sanitizeUser } from "./localAuth";
-import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, updateNotificationPreferencesSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, publicContactSchema, bytbilWebhookSchema, insertMessageSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated, isManager, sanitizeUser } from "./localAuth";
+import { insertLeadSchema, insertLeadNoteSchema, insertLeadTaskSchema, insertSellerPoolSchema, registerUserSchema, loginUserSchema, updateProfileSchema, updateNotificationPreferencesSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, publicContactSchema, bytbilWebhookSchema, insertMessageSchema, updateUserByAdminSchema } from "@shared/schema";
 import { z } from "zod";
 import { roundRobinService } from "./roundRobin";
 import { notificationService } from "./notificationService";
@@ -699,6 +699,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error changing password:", error);
       res.status(500).json({ message: "Misslyckades att ändra lösenord" });
+    }
+  });
+
+  // Admin routes - Manager only
+  app.get('/api/admin/users', isManager, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const usersWithPools = await Promise.all(
+        users.map(async (user) => {
+          const pools = await storage.getSellerPoolsByUserId(user.id);
+          return {
+            ...sanitizeUser(user),
+            sellerPools: pools,
+          };
+        })
+      );
+      res.json(usersWithPools);
+    } catch (error) {
+      console.error("Error fetching users for admin:", error);
+      res.status(500).json({ message: "Misslyckades att hämta användare" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id', isManager, async (req: any, res) => {
+    try {
+      const targetUserId = req.params.id;
+      const managerId = req.user.id;
+      
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Användare hittades inte" });
+      }
+
+      const validatedData = updateUserByAdminSchema.parse(req.body);
+
+      // Check for email uniqueness if email is being changed
+      if (validatedData.email && validatedData.email !== targetUser.email) {
+        const existingUser = await storage.getUserByEmail(validatedData.email);
+        if (existingUser) {
+          return res.status(400).json({ message: "En användare med denna e-postadress finns redan" });
+        }
+      }
+
+      // Track changes for audit log
+      const changes: Array<{ field: string; fromValue: string | null; toValue: string | null }> = [];
+
+      if (validatedData.firstName && validatedData.firstName !== targetUser.firstName) {
+        changes.push({
+          field: "firstName",
+          fromValue: targetUser.firstName || null,
+          toValue: validatedData.firstName,
+        });
+      }
+
+      if (validatedData.lastName && validatedData.lastName !== targetUser.lastName) {
+        changes.push({
+          field: "lastName",
+          fromValue: targetUser.lastName || null,
+          toValue: validatedData.lastName,
+        });
+      }
+
+      if (validatedData.email && validatedData.email !== targetUser.email) {
+        changes.push({
+          field: "email",
+          fromValue: targetUser.email,
+          toValue: validatedData.email,
+        });
+      }
+
+      if (validatedData.role && validatedData.role !== targetUser.role) {
+        changes.push({
+          field: "role",
+          fromValue: targetUser.role,
+          toValue: validatedData.role,
+        });
+      }
+
+      if (validatedData.anlaggning !== undefined && validatedData.anlaggning !== targetUser.anlaggning) {
+        changes.push({
+          field: "anlaggning",
+          fromValue: targetUser.anlaggning || null,
+          toValue: validatedData.anlaggning,
+        });
+      }
+
+      if (validatedData.isActive !== undefined && validatedData.isActive !== targetUser.isActive) {
+        changes.push({
+          field: "isActive",
+          fromValue: String(targetUser.isActive),
+          toValue: String(validatedData.isActive),
+        });
+      }
+
+      if (validatedData.emailOnLeadAssignment !== undefined && validatedData.emailOnLeadAssignment !== targetUser.emailOnLeadAssignment) {
+        changes.push({
+          field: "emailOnLeadAssignment",
+          fromValue: String(targetUser.emailOnLeadAssignment),
+          toValue: String(validatedData.emailOnLeadAssignment),
+        });
+      }
+
+      // Update user and create audit logs in a transaction-like manner
+      const updatedUser = await storage.updateUser(targetUserId, validatedData);
+
+      // Create audit log entries for each change
+      for (const change of changes) {
+        await storage.createUserManagementAuditLog({
+          targetUserId,
+          changedById: managerId,
+          field: change.field,
+          fromValue: change.fromValue,
+          toValue: change.toValue,
+        });
+      }
+
+      res.json(sanitizeUser(updatedUser));
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valideringsfel", errors: error.errors });
+      }
+      console.error("Error updating user by admin:", error);
+      res.status(500).json({ message: "Misslyckades att uppdatera användare" });
+    }
+  });
+
+  app.get('/api/admin/users/:id/audit', isManager, async (req: any, res) => {
+    try {
+      const targetUserId = req.params.id;
+      const auditLogs = await storage.getUserManagementAuditLogs(targetUserId);
+      res.json(auditLogs);
+    } catch (error) {
+      console.error("Error fetching user audit logs:", error);
+      res.status(500).json({ message: "Misslyckades att hämta ändringshistorik" });
     }
   });
 

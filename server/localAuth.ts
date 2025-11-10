@@ -94,3 +94,16 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   }
   res.status(401).json({ message: "Unauthorized" });
 };
+
+export const isManager: RequestHandler = (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const user = req.user as any;
+  if (user?.role !== "MANAGER") {
+    return res.status(403).json({ message: "Endast managers har åtkomst till denna resurs" });
+  }
+  
+  next();
+};

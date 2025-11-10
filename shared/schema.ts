@@ -160,6 +160,16 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const userManagementAuditLogs = pgTable("user_management_audit_logs", {
+  id: varchar("id", { length: 255 }).primaryKey().default(sql`gen_random_uuid()`),
+  targetUserId: varchar("target_user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  changedById: varchar("changed_by_id", { length: 255 }).notNull().references(() => users.id),
+  field: text("field").notNull(),
+  fromValue: text("from_value"),
+  toValue: text("to_value"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -358,3 +368,25 @@ export type MessageWithUsers = Message & {
   receiverProfileImageUrl: string | null;
   leadTitle?: string | null;
 };
+
+export const insertUserManagementAuditLogSchema = createInsertSchema(userManagementAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserManagementAuditLog = z.infer<typeof insertUserManagementAuditLogSchema>;
+export type UserManagementAuditLog = typeof userManagementAuditLogs.$inferSelect;
+export type UserManagementAuditLogWithNames = UserManagementAuditLog & {
+  targetUserName: string;
+  changedByName: string;
+};
+
+export const updateUserByAdminSchema = z.object({
+  firstName: z.string().min(1, "Förnamn krävs").optional(),
+  lastName: z.string().min(1, "Efternamn krävs").optional(),
+  email: z.string().email("Ogiltig e-postadress").optional(),
+  role: z.enum(["MANAGER", "SALJARE"]).optional(),
+  anlaggning: z.enum(["Falkenberg", "Göteborg", "Trollhättan"]).nullable().optional(),
+  isActive: z.boolean().optional(),
+  emailOnLeadAssignment: z.boolean().optional(),
+});

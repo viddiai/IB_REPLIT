@@ -1,5 +1,6 @@
 import { db } from "./db";
-import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools, passwordResetTokens, statusChangeHistory, emailNotificationLogs, messages } from "@shared/schema";
+import { users, leads, leadNotes, leadTasks, auditLogs, sellerPools, passwordResetTokens, statusChangeHistory, emailNotificationLogs, messages, userManagementAuditLogs } from "@shared/schema";
+import { alias } from "drizzle-orm/pg-core";
 import type {
   User,
   InsertUser,
@@ -23,6 +24,9 @@ import type {
   Message,
   MessageWithUsers,
   InsertMessage,
+  UserManagementAuditLog,
+  UserManagementAuditLogWithNames,
+  InsertUserManagementAuditLog,
 } from "@shared/schema";
 import { eq, and, desc, asc, sql, lt, inArray, gte } from "drizzle-orm";
 import { formatInTimeZone, toDate } from "date-fns-tz";
@@ -121,6 +125,9 @@ export interface IStorage {
   markMessagesAsRead(userId: string, leadId: string): Promise<void>;
   getUnreadMessageCount(userId: string): Promise<number>;
   hasMessagesForLead(userId: string, leadId: string): Promise<boolean>;
+  
+  createUserManagementAuditLog(log: InsertUserManagementAuditLog): Promise<UserManagementAuditLog>;
+  getUserManagementAuditLogs(targetUserId: string): Promise<UserManagementAuditLogWithNames[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -1131,6 +1138,35 @@ export class DbStorage implements IStorage {
       activeSellers,
       uniqueFacilities,
     };
+  }
+
+  async createUserManagementAuditLog(log: InsertUserManagementAuditLog): Promise<UserManagementAuditLog> {
+    const [auditLog] = await db.insert(userManagementAuditLogs).values(log).returning();
+    return auditLog;
+  }
+
+  async getUserManagementAuditLogs(targetUserId: string): Promise<UserManagementAuditLogWithNames[]> {
+    const changedBy = alias(users, "changed_by");
+    
+    const logs = await db
+      .select({
+        id: userManagementAuditLogs.id,
+        targetUserId: userManagementAuditLogs.targetUserId,
+        changedById: userManagementAuditLogs.changedById,
+        field: userManagementAuditLogs.field,
+        fromValue: userManagementAuditLogs.fromValue,
+        toValue: userManagementAuditLogs.toValue,
+        createdAt: userManagementAuditLogs.createdAt,
+        targetUserName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`.as('target_user_name'),
+        changedByName: sql<string>`CONCAT(${changedBy.firstName}, ' ', ${changedBy.lastName})`.as('changed_by_name'),
+      })
+      .from(userManagementAuditLogs)
+      .leftJoin(users, eq(userManagementAuditLogs.targetUserId, users.id))
+      .leftJoin(changedBy, eq(userManagementAuditLogs.changedById, changedBy.id))
+      .where(eq(userManagementAuditLogs.targetUserId, targetUserId))
+      .orderBy(desc(userManagementAuditLogs.createdAt));
+
+    return logs as UserManagementAuditLogWithNames[];
   }
 }
 
