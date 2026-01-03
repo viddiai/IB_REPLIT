@@ -144,31 +144,19 @@ export class ImapWorker {
     const parsed = EmailParser.parseEmail(htmlContent, subject, from, senderName);
 
     if (!parsed) {
-      console.log(`[${this.config.name}] Could not parse email from ${from} with subject: ${subject}`);
-      
-      // Save failed email to file for debugging
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `failed-email-${this.config.name}-${timestamp}.html`;
-      const filepath = path.join('/tmp', filename);
-      
-      const debugInfo = `
-==============================================
-FROM: ${from}
-SUBJECT: ${subject}
-TIME: ${new Date().toISOString()}
-FACILITY: ${this.config.name}
-==============================================
+      // Log only metadata to avoid storing sensitive customer data
+      console.error(`[${this.config.name}] ❌ Failed to parse email:`, {
+        from: from,
+        subject: subject,
+        timestamp: new Date().toISOString(),
+        facility: this.config.name,
+        contentLength: htmlContent.length,
+        contentPreview: htmlContent.substring(0, 100) + '...'
+      });
 
-${htmlContent}
-`;
-      
-      try {
-        fs.writeFileSync(filepath, debugInfo);
-        console.log(`[${this.config.name}] ⚠️  Email saved to ${filepath} for debugging`);
-      } catch (err) {
-        console.error(`[${this.config.name}] Failed to save email to file:`, err);
-      }
-      
+      // NOTE: Full email content is NOT saved to disk for security/GDPR compliance.
+      // If debugging is needed, enable verbose logging or use a proper logging service.
+
       return;
     }
 

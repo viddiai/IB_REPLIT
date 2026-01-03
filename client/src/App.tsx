@@ -30,12 +30,12 @@ function AuthenticatedRouter() {
   if (isLoading || !isAuthenticated) {
     return (
       <Switch>
-        <Route path="/" component={Landing} />
         <Route path="/kontakt" component={PublicContact} />
         <Route path="/login" component={Login} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
-        <Route component={Landing} />
+        <Route path="/" component={Landing} />
+        <Route component={NotFound} />
       </Switch>
     );
   }

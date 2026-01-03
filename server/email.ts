@@ -3,6 +3,19 @@ import type { Lead, User } from '@shared/schema';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+/**
+ * HTML-escape user input to prevent XSS attacks in email templates
+ */
+function escapeHtml(unsafe: string | null | undefined): string {
+  if (!unsafe) return '';
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function getBaseUrl(): string {
   if (process.env.REPLIT_DOMAINS) {
     const domains = process.env.REPLIT_DOMAINS.split(',');
@@ -107,17 +120,25 @@ export async function sendLeadAssignmentEmail(user: User, lead: Lead) {
   const baseUrl = getBaseUrl();
   const leadUrl = `${baseUrl}/leads/${lead.id}`;
   const settingsUrl = `${baseUrl}/settings`;
-  
-  const firstName = user.firstName || 'där';
-  const subject = `Nytt lead tilldelat: ${lead.vehicleTitle}`;
-  
+
+  // Escape all user-provided data for safe HTML rendering
+  const firstName = escapeHtml(user.firstName) || 'där';
+  const vehicleTitle = escapeHtml(lead.vehicleTitle);
+  const contactName = escapeHtml(lead.contactName);
+  const contactEmail = escapeHtml(lead.contactEmail);
+  const contactPhone = escapeHtml(lead.contactPhone);
+  const anlaggning = escapeHtml(lead.anlaggning);
+  const message = escapeHtml(lead.message);
+
+  const subject = `Nytt lead tilldelat: ${vehicleTitle}`;
+
   const sourceMap: Record<string, string> = {
     'BYTBIL': 'Bytbil',
     'BLOCKET': 'Blocket',
     'HEMSIDA': 'Hemsida',
     'EGET': 'Eget'
   };
-  
+
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleString('sv-SE', {
       year: 'numeric',
@@ -164,32 +185,32 @@ export async function sendLeadAssignmentEmail(user: User, lead: Lead) {
                 <div style="background-color: #f9f9f9; border-left: 4px solid hsl(0, 72%, 51%); padding: 20px; margin: 20px 0;">
                   <div style="margin-bottom: 12px;">
                     <strong style="color: #666; font-size: 14px;">Fordon:</strong>
-                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${lead.vehicleTitle}</p>
+                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${vehicleTitle}</p>
                   </div>
-                  
+
                   <div style="margin-bottom: 12px;">
                     <strong style="color: #666; font-size: 14px;">Kund:</strong>
-                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${lead.contactName}</p>
+                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${contactName}</p>
                   </div>
-                  
-                  ${lead.contactEmail ? `
+
+                  ${contactEmail ? `
                   <div style="margin-bottom: 12px;">
                     <strong style="color: #666; font-size: 14px;">E-post:</strong>
-                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${lead.contactEmail}</p>
+                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${contactEmail}</p>
                   </div>
                   ` : ''}
-                  
-                  ${lead.contactPhone ? `
+
+                  ${contactPhone ? `
                   <div style="margin-bottom: 12px;">
                     <strong style="color: #666; font-size: 14px;">Telefon:</strong>
-                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${lead.contactPhone}</p>
+                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${contactPhone}</p>
                   </div>
                   ` : ''}
-                  
-                  ${lead.anlaggning ? `
+
+                  ${anlaggning ? `
                   <div style="margin-bottom: 12px;">
                     <strong style="color: #666; font-size: 14px;">Anläggning:</strong>
-                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${lead.anlaggning}</p>
+                    <p style="margin: 4px 0 0 0; color: #333; font-size: 15px;">${anlaggning}</p>
                   </div>
                   ` : ''}
                   
@@ -232,11 +253,11 @@ export async function sendLeadAssignmentEmail(user: User, lead: Lead) {
                   </a>
                 </div>
                 
-                ${lead.message ? `
+                ${message ? `
                 <div style="margin: 20px 0;">
                   <strong style="color: #666; font-size: 14px;">Meddelande från kund:</strong>
-                  <p style="margin: 8px 0 0 0; color: #333; font-size: 15px; line-height: 1.6; background-color: #f9f9f9; padding: 15px; border-radius: 6px;">
-                    ${lead.message}
+                  <p style="margin: 8px 0 0 0; color: #333; font-size: 15px; line-height: 1.6; background-color: #f9f9f9; padding: 15px; border-radius: 6px; white-space: pre-wrap;">
+                    ${message}
                   </p>
                 </div>
                 ` : ''}
@@ -279,10 +300,14 @@ export async function sendLeadAssignmentEmail(user: User, lead: Lead) {
 export async function sendAcceptanceReminderEmail(user: User, lead: Lead, hoursRemaining: number) {
   const baseUrl = getBaseUrl();
   const leadUrl = `${baseUrl}/leads/${lead.id}`;
-  
-  const firstName = user.firstName || 'där';
+
+  // Escape user-provided data
+  const firstName = escapeHtml(user.firstName) || 'där';
+  const vehicleTitle = escapeHtml(lead.vehicleTitle);
+  const contactName = escapeHtml(lead.contactName);
+
   const urgency = hoursRemaining <= 1 ? 'SISTA PÅMINNELSEN' : 'Påminnelse';
-  const subject = `${urgency}: Bekräfta lead - ${lead.vehicleTitle}`;
+  const subject = `${urgency}: Bekräfta lead - ${vehicleTitle}`;
   
   try {
     const { data, error } = await resend.emails.send({
@@ -312,11 +337,11 @@ export async function sendAcceptanceReminderEmail(user: User, lead: Lead, hoursR
                 
                 <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
                   <h2 style="margin: 0 0 15px 0; color: #333; font-size: 18px; font-weight: 600;">
-                    ${lead.vehicleTitle}
+                    ${vehicleTitle}
                   </h2>
                   <div style="margin: 10px 0;">
                     <strong style="color: #666; font-size: 14px;">Kund:</strong>
-                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactName}</span>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${contactName}</span>
                   </div>
                 </div>
                 
@@ -390,12 +415,20 @@ export async function sendAcceptanceReminderEmail(user: User, lead: Lead, hoursR
 export async function sendManagerTimeoutNotification(manager: User, seller: User, lead: Lead) {
   const baseUrl = getBaseUrl();
   const leadUrl = `${baseUrl}/leads/${lead.id}`;
-  
-  const managerFirstName = manager.firstName || 'där';
-  const sellerName = seller.firstName && seller.lastName 
-    ? `${seller.firstName} ${seller.lastName}` 
-    : seller.email;
-  const subject = `⚠️ Lead ej bekräftat: ${lead.vehicleTitle}`;
+
+  // Escape user-provided data
+  const managerFirstName = escapeHtml(manager.firstName) || 'där';
+  const sellerFirstName = escapeHtml(seller.firstName);
+  const sellerLastName = escapeHtml(seller.lastName);
+  const sellerName = sellerFirstName && sellerLastName
+    ? `${sellerFirstName} ${sellerLastName}`
+    : escapeHtml(seller.email);
+  const vehicleTitle = escapeHtml(lead.vehicleTitle);
+  const contactName = escapeHtml(lead.contactName);
+  const contactEmail = escapeHtml(lead.contactEmail);
+  const contactPhone = escapeHtml(lead.contactPhone);
+
+  const subject = `⚠️ Lead ej bekräftat: ${vehicleTitle}`;
   
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleString('sv-SE', {
@@ -435,7 +468,7 @@ export async function sendManagerTimeoutNotification(manager: User, seller: User
                 
                 <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
                   <h2 style="margin: 0 0 15px 0; color: #333; font-size: 18px; font-weight: 600;">
-                    ${lead.vehicleTitle}
+                    ${vehicleTitle}
                   </h2>
                   <div style="margin: 10px 0;">
                     <strong style="color: #666; font-size: 14px;">Tilldelat:</strong>
@@ -443,18 +476,18 @@ export async function sendManagerTimeoutNotification(manager: User, seller: User
                   </div>
                   <div style="margin: 10px 0;">
                     <strong style="color: #666; font-size: 14px;">Kund:</strong>
-                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactName}</span>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${contactName}</span>
                   </div>
-                  ${lead.contactEmail ? `
+                  ${contactEmail ? `
                   <div style="margin: 10px 0;">
                     <strong style="color: #666; font-size: 14px;">E-post:</strong>
-                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactEmail}</span>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${contactEmail}</span>
                   </div>
                   ` : ''}
-                  ${lead.contactPhone ? `
+                  ${contactPhone ? `
                   <div style="margin: 10px 0;">
                     <strong style="color: #666; font-size: 14px;">Telefon:</strong>
-                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${lead.contactPhone}</span>
+                    <span style="color: #333; font-size: 14px; margin-left: 8px;">${contactPhone}</span>
                   </div>
                   ` : ''}
                 </div>
