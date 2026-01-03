@@ -2,8 +2,6 @@ import { ImapFlow } from "imapflow";
 import { EmailParser } from "./emailParsers";
 import { roundRobinService } from "./roundRobin";
 import { storage } from "./storage";
-import * as fs from "fs";
-import * as path from "path";
 
 export interface ImapConfig {
   name: string;
@@ -66,10 +64,29 @@ export class ImapWorker {
       await Promise.race([connectPromise, timeoutPromise]);
       console.log(`[${this.config.name}] ✅ Connected to IMAP server successfully`);
       return true;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[${this.config.name}] ❌ Failed to connect to IMAP server: ${errorMessage}`);
-      
+    } catch (error: any) {
+      // Extract detailed error information
+      const errorCode = error?.code || error?.responseCode || 'UNKNOWN';
+      const errorMessage = error?.message || String(error);
+      const errorText = error?.responseText || error?.text || '';
+
+      console.error(`[${this.config.name}] ❌ IMAP Connection Failed:`);
+      console.error(`  → Error Code: ${errorCode}`);
+      console.error(`  → Message: ${errorMessage}`);
+      if (errorText) {
+        console.error(`  → Server Response: ${errorText}`);
+      }
+
+      // Provide helpful troubleshooting hints
+      if (errorCode === 'AUTHENTICATIONFAILED' || errorMessage.includes('auth') || errorMessage.includes('login')) {
+        console.error(`  💡 Hint: Check IMAP_GOTEBORG_USER and IMAP_GOTEBORG_PASSWORD environment variables`);
+        console.error(`  💡 Hint: Verify the account is not locked on one.com`);
+      } else if (errorCode === 'ECONNREFUSED' || errorCode === 'ETIMEDOUT') {
+        console.error(`  💡 Hint: Network issue - check if imap.one.com is reachable`);
+      } else if (errorMessage.includes('timeout')) {
+        console.error(`  💡 Hint: Server is slow to respond - may be temporary`);
+      }
+
       // Just null out the client without attempting any cleanup
       // This prevents crashes when the connection failed
       this.client = null;
